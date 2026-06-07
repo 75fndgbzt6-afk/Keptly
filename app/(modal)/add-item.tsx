@@ -23,10 +23,11 @@ import {
   INTENT_OPTIONS,
   STATUS_OPTIONS,
   DOC_TYPES,
-  maskIdNumber,
 } from '@/lib/options';
+import { documentMask } from '@/lib/masking';
 import { todayISO } from '@/lib/date';
 import { createItem, getItem, updateItem } from '@/db/items';
+import { getFullId, setFullId, clearFullId } from '@/services/vault';
 import { useItemsStore } from '@/stores/itemsStore';
 
 const CATEGORY_OPTIONS: Option<Category>[] = CATEGORIES.map((c) => ({ label: c, value: c }));
@@ -47,6 +48,10 @@ interface FormState {
   intentFlag: IntentFlag;
   notes: string;
   details: ItemDetails;
+  /** Full government-ID input (document items only). Stored in secure store, never the table. */
+  fullId: string;
+  /** Existing scan path, round-tripped untouched (scans are managed on the detail screen). */
+  attachmentUri: string | null;
 }
 
 function initialForm(): FormState {
@@ -66,6 +71,8 @@ function initialForm(): FormState {
     intentFlag: 'neutral',
     notes: '',
     details: emptyDetailsFor(category),
+    fullId: '',
+    attachmentUri: null,
   };
 }
 
@@ -91,6 +98,9 @@ export default function AddEditItemModal() {
         setLoading(false);
         return;
       }
+      // The full ID lives only in secure store; load it for editing.
+      const fullId = item.details.kind === 'document' ? (await getFullId(item.id)) ?? '' : '';
+      if (!active) return;
       setForm({
         name: item.name,
         category: item.category,
@@ -106,6 +116,8 @@ export default function AddEditItemModal() {
         intentFlag: item.intentFlag,
         notes: item.notes ?? '',
         details: item.details,
+        fullId,
+        attachmentUri: item.attachmentUri,
       });
       setLoading(false);
     })();
@@ -149,6 +161,18 @@ export default function AddEditItemModal() {
     setSaving(true);
 
     const amountValue = form.amount.trim() === '' ? null : Number(form.amount);
+
+    // For documents, persist only the MASKED id in the table; the full value goes
+    // to secure store after we know the item's id (SPEC §8).
+    const trimmedFullId = form.fullId.trim();
+    let details = form.details;
+    if (details.kind === 'document') {
+      details = {
+        ...details,
+        maskedIdNumber: trimmedFullId ? documentMask(details.docType, trimmedFullId) : undefined,
+      };
+    }
+
     const payload = {
       name: form.name.trim(),
       category: form.category,
@@ -164,15 +188,23 @@ export default function AddEditItemModal() {
       status: form.status,
       intentFlag: form.intentFlag,
       notes: form.notes.trim() || null,
-      attachmentUri: null,
-      details: form.details,
+      // Round-trip any existing scan untouched (managed on the detail screen).
+      attachmentUri: form.attachmentUri,
+      details,
     };
 
+    const savedId = isEdit && id ? id : (await createItem(payload)).id;
     if (isEdit && id) {
       await updateItem(id, payload);
-    } else {
-      await createItem(payload);
     }
+
+    // Mirror the full ID into secure store (or clear it when removed / non-document).
+    if (details.kind === 'document' && trimmedFullId) {
+      await setFullId(savedId, trimmedFullId);
+    } else {
+      await clearFullId(savedId);
+    }
+
     await refresh();
     setSaving(false);
     router.back();
@@ -267,7 +299,12 @@ export default function AddEditItemModal() {
               <WarrantyFields details={form.details} onChange={setWarranty} />
             ) : null}
             {form.details.kind === 'document' ? (
-              <DocumentFields details={form.details} onChange={setDocument} />
+              <DocumentFields
+                details={form.details}
+                fullId={form.fullId}
+                onChange={setDocument}
+                onFullIdChange={(t) => update('fullId', t)}
+              />
             ) : null}
             {form.details.kind === 'utility' ? (
               <UtilityFields details={form.details} onChange={setUtility} />
@@ -354,11 +391,16 @@ function WarrantyFields({
 
 function DocumentFields({
   details,
+  fullId,
   onChange,
+  onFullIdChange,
 }: {
   details: DocumentDetails;
+  fullId: string;
   onChange: (patch: Partial<Omit<DocumentDetails, 'kind'>>) => void;
+  onFullIdChange: (value: string) => void;
 }) {
+  const preview = fullId.trim() ? documentMask(details.docType, fullId.trim()) : null;
   return (
     <>
       <SelectField<string>
@@ -375,16 +417,18 @@ function DocumentFields({
         onChangeText={(t) => onChange({ issuingAuthority: t })}
       />
       <Input
-        label="ID number (masked)"
-        placeholder="Last 4 digits only"
-        value={details.maskedIdNumber ?? ''}
-        onChangeText={(t) => onChange({ maskedIdNumber: t })}
-        onBlur={() =>
-          details.maskedIdNumber
-            ? onChange({ maskedIdNumber: maskIdNumber(details.maskedIdNumber) })
-            : undefined
+        label="ID number"
+        placeholder="Enter the full number"
+        value={fullId}
+        onChangeText={onFullIdChange}
+        autoCapitalize="characters"
+        autoCorrect={false}
+        secureTextEntry
+        hint={
+          preview
+            ? `Stored encrypted on this device. Shown as ${preview}.`
+            : 'Stored encrypted on this device — only a masked form is shown elsewhere.'
         }
-        hint="For your safety, only a masked value is stored."
       />
       <DateField
         label="Issue date"

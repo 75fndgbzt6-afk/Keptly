@@ -155,6 +155,12 @@ export async function scheduleForItem(item: Item): Promise<void> {
   }
 }
 
+/** Wipe every OS-scheduled notification (used by Delete-all-data). */
+export async function cancelAllNotifications(): Promise<void> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  await cancelOsNotifications(scheduled.map((s) => s.identifier));
+}
+
 /** Cancel all of an item's scheduled notifications and mark its reminders dismissed. */
 export async function cancelForItem(itemId: string): Promise<void> {
   const existing = await listRemindersByItem(itemId);

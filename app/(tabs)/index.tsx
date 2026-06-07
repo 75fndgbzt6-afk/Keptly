@@ -96,7 +96,7 @@ export default function HomeScreen() {
             style={styles.headerButton}
             accessibilityLabel="Settings"
             accessibilityRole="button"
-            onPress={() => {}}
+            onPress={() => router.push('/settings')}
           >
             <Ionicons name="settings-outline" size={22} color={theme.colors.text.secondary} />
           </TouchableOpacity>
@@ -144,6 +144,25 @@ export default function HomeScreen() {
               </Card>
             </TouchableOpacity>
           ) : null}
+
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => router.push('/vault')}
+            accessibilityRole="button"
+          >
+            <Card style={styles.vaultCard}>
+              <View style={styles.vaultIcon}>
+                <Ionicons name="shield-checkmark-outline" size={20} color={theme.colors.accent} />
+              </View>
+              <View style={styles.flex1}>
+                <AppText weight="semibold">Document Vault</AppText>
+                <AppText size="xs" color={theme.colors.text.tertiary}>
+                  IDs & scans, locked behind your biometric
+                </AppText>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.colors.text.tertiary} />
+            </Card>
+          </TouchableOpacity>
 
           {alerts.length > 0 ? (
             <Section title="Needs attention">
@@ -301,6 +320,19 @@ const styles = StyleSheet.create({
   },
   savingsText: {
     flex: 1,
+  },
+  vaultCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  vaultIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: theme.radius.full,
+    backgroundColor: theme.colors.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   section: {
     gap: theme.spacing.sm,

@@ -164,6 +164,21 @@ export default function ItemsScreen() {
             </View>
           </View>
 
+          {chip === 'Government document' ? (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => router.push('/vault')}
+              style={styles.vaultBanner}
+              accessibilityRole="button"
+            >
+              <Ionicons name="shield-checkmark-outline" size={16} color={theme.colors.accent} />
+              <AppText size="sm" color={theme.colors.accent} weight="medium" style={styles.vaultBannerText}>
+                These items also live in the secured Vault
+              </AppText>
+              <Ionicons name="chevron-forward" size={16} color={theme.colors.accent} />
+            </TouchableOpacity>
+          ) : null}
+
           {noResults ? (
             <EmptyState
               icon="search-outline"
@@ -234,5 +249,19 @@ const styles = StyleSheet.create({
   listContent: {
     padding: theme.spacing.base,
     gap: theme.spacing.sm,
+  },
+  vaultBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginHorizontal: theme.spacing.base,
+    marginTop: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.accentLight,
+  },
+  vaultBannerText: {
+    flex: 1,
   },
 });

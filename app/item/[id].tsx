@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Alert, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Image, Alert, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Badge, Button } from '@/components/ui';
+import { RevealableValue } from '@/components/security';
 import { theme } from '@/constants/theme';
 import { Item, ItemDetails, IntentFlag, PaymentMethod } from '@/types';
 import { CATEGORY_ICONS } from '@/lib/category';
@@ -12,6 +13,8 @@ import {
   PAYMENT_TYPE_LABELS,
 } from '@/lib/options';
 import { hasUsageModel } from '@/lib/usage-models';
+import { documentDisplayId } from '@/lib/masking';
+import { PERMISSION_COPY } from '@/lib/permission-copy';
 import { formatCurrency } from '@/lib/currency';
 import { formatDate, relativeDateLabel } from '@/lib/date';
 import { urgencyBadgeVariant, urgencyForDate } from '@/lib/urgency';
@@ -20,6 +23,8 @@ import { REMINDER_TYPE_LABELS } from '@/lib/notification-copy';
 import { getItem, deleteItem, updateItem } from '@/db/items';
 import { scheduleTestNotification } from '@/services/notifications';
 import { getValueVerdict, ValueVerdict } from '@/services/value-engine';
+import { getFullId, purgeItemSecrets } from '@/services/vault';
+import { captureScan, deleteScan, ScanSource } from '@/services/scan';
 import { UsageSection } from '@/components/usage';
 import { useItemsStore } from '@/stores/itemsStore';
 import { usePaymentMethodsStore } from '@/stores/paymentMethodsStore';
@@ -55,6 +60,7 @@ export default function ItemDetailScreen() {
 
   const [item, setItem] = useState<Item | null>(null);
   const [verdict, setVerdict] = useState<ValueVerdict | null>(null);
+  const [canReveal, setCanReveal] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const refreshVerdict = useCallback(async () => {
@@ -66,6 +72,8 @@ export default function ItemDetailScreen() {
     if (!id) return;
     const found = await getItem(id);
     setItem(found);
+    // A full ID only exists for documents that have one stored in secure store.
+    setCanReveal(found?.details.kind === 'document' ? !!(await getFullId(found.id)) : false);
     await refreshVerdict();
     setLoading(false);
   }, [id, refreshVerdict]);
@@ -119,6 +127,8 @@ export default function ItemDetailScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
+            // Erase on-device secrets (full ID + scan) before removing the row.
+            await purgeItemSecrets(item.id);
             await deleteItem(item.id);
             await refresh();
             router.back();
@@ -126,6 +136,44 @@ export default function ItemDetailScreen() {
         },
       ],
     );
+  };
+
+  const runScan = useCallback(
+    async (source: ScanSource) => {
+      if (!item) return;
+      const path = await captureScan(item.id, source);
+      if (!path) return;
+      await updateItem(item.id, { attachmentUri: path });
+      await load();
+      await refresh();
+    },
+    [item, load, refresh],
+  );
+
+  const handleAttachScan = () => {
+    // Plain-language rationale before any OS permission prompt.
+    Alert.alert(PERMISSION_COPY.scan.title, PERMISSION_COPY.scan.body, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Take photo', onPress: () => runScan('camera') },
+      { text: 'Choose from library', onPress: () => runScan('library') },
+    ]);
+  };
+
+  const handleRemoveScan = () => {
+    if (!item) return;
+    Alert.alert('Remove scan', 'Delete the attached scan from this device?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteScan(item.id);
+          await updateItem(item.id, { attachmentUri: null });
+          await load();
+          await refresh();
+        },
+      },
+    ]);
   };
 
   if (loading) {
@@ -223,6 +271,15 @@ export default function ItemDetailScreen() {
 
         <DetailsCard details={item.details} />
 
+        {item.category === 'Government document' || item.category === 'Insurance' ? (
+          <SecuredCard
+            item={item}
+            canReveal={canReveal}
+            onAttachScan={handleAttachScan}
+            onRemoveScan={handleRemoveScan}
+          />
+        ) : null}
+
         {item.notes ? (
           <Card style={styles.card}>
             <DetailRow label="Notes" value={item.notes} last />
@@ -319,6 +376,73 @@ function RemindersCard({ item, onEdit }: { item: Item; onEdit: () => void }) {
   );
 }
 
+function SecuredCard({
+  item,
+  canReveal,
+  onAttachScan,
+  onRemoveScan,
+}: {
+  item: Item;
+  canReveal: boolean;
+  onAttachScan: () => void;
+  onRemoveScan: () => void;
+}) {
+  const isDocument = item.details.kind === 'document';
+  const masked = isDocument ? documentDisplayId(item) : null;
+  const hasScan = !!item.attachmentUri;
+
+  return (
+    <Card style={styles.card}>
+      <View style={[styles.row, styles.rowBorder]}>
+        <View style={styles.securedHeading}>
+          <Ionicons name="lock-closed-outline" size={16} color={theme.colors.text.secondary} />
+          <AppText weight="semibold">Secured</AppText>
+        </View>
+      </View>
+
+      {isDocument ? (
+        <View style={[styles.row, styles.rowBorder]}>
+          <AppText size="sm" color={theme.colors.text.secondary}>
+            ID number
+          </AppText>
+          {masked ? (
+            <RevealableValue
+              masked={masked}
+              reason={PERMISSION_COPY.reveal.title}
+              getFull={() => getFullId(item.id)}
+              canReveal={canReveal}
+            />
+          ) : (
+            <AppText weight="medium" align="right">
+              —
+            </AppText>
+          )}
+        </View>
+      ) : null}
+
+      <View style={styles.scanSection}>
+        <AppText size="sm" color={theme.colors.text.secondary}>
+          Scan
+        </AppText>
+        {hasScan ? (
+          <>
+            <Image source={{ uri: item.attachmentUri ?? undefined }} style={styles.scanThumb} resizeMode="cover" />
+            <View style={styles.scanActions}>
+              <Button label="Replace" variant="secondary" size="sm" onPress={onAttachScan} style={styles.flex1} />
+              <Button label="Remove" variant="ghost" size="sm" onPress={onRemoveScan} style={styles.flex1} />
+            </View>
+          </>
+        ) : (
+          <Button label="Attach scan" variant="secondary" size="sm" onPress={onAttachScan} />
+        )}
+        <AppText size="xs" color={theme.colors.text.tertiary}>
+          Stored on-device only and locked behind your biometric — never uploaded.
+        </AppText>
+      </View>
+    </Card>
+  );
+}
+
 function DetailsCard({ details }: { details: ItemDetails }) {
   const rows = detailRows(details);
   if (rows.length === 0) return null;
@@ -344,10 +468,10 @@ function detailRows(details: ItemDetails): { label: string; value: string }[] {
         },
       ];
     case 'document':
+      // ID number is shown in the secured card (with Reveal), not here.
       return [
         { label: 'Document type', value: details.docType || '—' },
         { label: 'Issuing authority', value: details.issuingAuthority || '—' },
-        { label: 'ID number', value: details.maskedIdNumber || '—' },
         { label: 'Issue date', value: details.issueDate ? formatDate(details.issueDate) : '—' },
         { label: 'Expiry date', value: details.expiryDate ? formatDate(details.expiryDate) : '—' },
       ];
@@ -490,5 +614,27 @@ const styles = StyleSheet.create({
   actions: {
     gap: theme.spacing.sm,
     marginTop: theme.spacing.sm,
+  },
+  securedHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  scanSection: {
+    paddingVertical: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  scanThumb: {
+    width: '100%',
+    height: 180,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  scanActions: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  flex1: {
+    flex: 1,
   },
 });

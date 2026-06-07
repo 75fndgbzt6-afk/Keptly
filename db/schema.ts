@@ -1,9 +1,11 @@
 // Schema creation + versioned migrations. Runs idempotently on app startup.
 import type { SQLiteDatabase } from 'expo-sqlite';
+import { documentMask } from '@/lib/masking';
+import { SecureKeys, secureSet } from '@/services/secure-store';
 import { getDb } from './index';
 
 /** Bump this and add a migration step when the schema changes. */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 const CREATE_PAYMENT_METHODS = `
   CREATE TABLE IF NOT EXISTS payment_methods (
@@ -82,6 +84,48 @@ async function getUserVersion(db: SQLiteDatabase): Promise<number> {
   return row?.user_version ?? 0;
 }
 
+/**
+ * A stored ID looks UNMASKED if it has no mask characters and more than 4
+ * alphanumerics — i.e. it could be a full government ID from a legacy entry that
+ * predates Phase 5's secure split.
+ */
+function looksUnmasked(value: string): boolean {
+  if (value.includes('•') || value.includes('X')) return false;
+  return value.replace(/[^A-Za-z0-9]/g, '').length > 4;
+}
+
+interface DocSweepRow {
+  id: string;
+  details: string;
+}
+
+/**
+ * One-shot security migration: find any government-document item whose stored ID
+ * number is still a full/unmasked value, move the full value into secure store
+ * (keyed by item id) and replace the table value with its masked display form.
+ * Idempotent — already-masked items are skipped.
+ */
+async function sweepLegacyIds(db: SQLiteDatabase): Promise<void> {
+  const rows = await db.getAllAsync<DocSweepRow>('SELECT id, details FROM items');
+  for (const row of rows) {
+    let details: { kind?: string; docType?: string; maskedIdNumber?: string };
+    try {
+      details = JSON.parse(row.details);
+    } catch {
+      continue;
+    }
+    if (details.kind !== 'document') continue;
+    const raw = details.maskedIdNumber?.trim();
+    if (!raw || !looksUnmasked(raw)) continue;
+
+    // Preserve the full value securely, then strip it from the table.
+    await secureSet(SecureKeys.idExtra(row.id), raw);
+    const masked = documentMask(details.docType, raw);
+    const nextDetails = JSON.stringify({ ...details, maskedIdNumber: masked });
+    await db.runAsync('UPDATE items SET details = ? WHERE id = ?', [nextDetails, row.id]);
+  }
+}
+
 /** Migration steps, applied in order for versions greater than the stored one. */
 const MIGRATIONS: { version: number; up: (db: SQLiteDatabase) => Promise<void> }[] = [
   {
@@ -106,6 +150,15 @@ const MIGRATIONS: { version: number; up: (db: SQLiteDatabase) => Promise<void> }
     up: async (db) => {
       // Display unit for consumption usage logs (e.g. "kWh", "GB"). NULL for digital/check-in.
       await db.execAsync('ALTER TABLE usage_logs ADD COLUMN unit TEXT;');
+    },
+  },
+  {
+    version: 4,
+    up: async (db) => {
+      // Security: move any legacy full government-ID numbers out of the items table
+      // into secure store, leaving only the masked display behind (SPEC §8).
+      // payment_methods already holds only last4 — no card-number column to drop.
+      await sweepLegacyIds(db);
     },
   },
 ];

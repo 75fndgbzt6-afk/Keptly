@@ -26,11 +26,25 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
+      "expo-secure-store",
       "@react-native-community/datetimepicker",
       [
         "expo-notifications",
         {
           "color": "#4F46E5"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Renewly needs access to attach a document scan. Photos stay on this device and are never uploaded.",
+          "cameraPermission": "Renewly needs the camera to scan a document. Scans stay on this device and are never uploaded."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Use Face ID to unlock Renewly and your document vault."
         }
       ]
     ],

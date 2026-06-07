@@ -15,6 +15,8 @@ import {
 import { initDatabase } from '@/db/schema';
 import { initNotifications, reconcile, addResponseListener } from '@/services/notifications';
 import { useRecommendationsStore } from '@/stores/recommendationsStore';
+import { AppLockProvider } from '@/components/security';
+import { safeWarn } from '@/lib/safe-log';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -35,7 +37,7 @@ export default function RootLayout() {
         await reconcile();
         await useRecommendationsStore.getState().refresh();
       } catch (e) {
-        console.error('Startup init failed', e);
+        safeWarn('Startup init failed', { message: e instanceof Error ? e.message : String(e) });
       } finally {
         setDbReady(true);
       }
@@ -61,23 +63,27 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="item/[id]" />
-          <Stack.Screen name="notifications" />
-          <Stack.Screen
-            name="(modal)/add-item"
-            options={{ presentation: 'modal' }}
-          />
-          <Stack.Screen
-            name="(modal)/enable-reminders"
-            options={{ presentation: 'modal' }}
-          />
-          <Stack.Screen
-            name="(modal)/edit-reminders"
-            options={{ presentation: 'modal' }}
-          />
-        </Stack>
+        <AppLockProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="item/[id]" />
+            <Stack.Screen name="notifications" />
+            <Stack.Screen name="vault" />
+            <Stack.Screen name="settings" />
+            <Stack.Screen
+              name="(modal)/add-item"
+              options={{ presentation: 'modal' }}
+            />
+            <Stack.Screen
+              name="(modal)/enable-reminders"
+              options={{ presentation: 'modal' }}
+            />
+            <Stack.Screen
+              name="(modal)/edit-reminders"
+              options={{ presentation: 'modal' }}
+            />
+          </Stack>
+        </AppLockProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
