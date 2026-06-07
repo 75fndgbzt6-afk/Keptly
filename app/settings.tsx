@@ -1,20 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
-import { Screen, AppText, Card, Button, Input } from '@/components/ui';
+import { Screen, AppText, Card, Button, Input, Badge } from '@/components/ui';
 import { ToggleField } from '@/components/form';
 import { Theme, ThemeMode } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
 import { useThemeStore } from '@/stores/themeStore';
 import { canAuthenticate } from '@/services/app-lock';
 import { exportData, deleteAllData } from '@/services/data-export';
+import { CURRENCY_SYMBOLS } from '@/constants/config';
 import { useSecurityStore, TIMEOUT_OPTIONS, TimeoutMinutes } from '@/stores/securityStore';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import { useItemsStore } from '@/stores/itemsStore';
 import { useRecommendationsStore } from '@/stores/recommendationsStore';
 import { usePaymentMethodsStore } from '@/stores/paymentMethodsStore';
 
 const DELETE_WORD = 'DELETE';
+const CURRENCIES = Object.keys(CURRENCY_SYMBOLS);
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
+
+/** Format an hour (0–23) as a friendly 12-hour label. */
+function hourLabel(h: number): string {
+  const period = h < 12 ? 'am' : 'pm';
+  const base = h % 12 === 0 ? 12 : h % 12;
+  return `${base}${period}`;
+}
 
 const APPEARANCE_OPTIONS: { label: string; value: ThemeMode }[] = [
   { label: 'Light', value: 'light' },
@@ -29,6 +41,7 @@ export default function SettingsScreen() {
   const security = useSecurityStore();
   const themeMode = useThemeStore((s) => s.mode);
   const setThemeMode = useThemeStore((s) => s.setMode);
+  const prefs = usePreferencesStore();
   const refreshItems = useItemsStore((s) => s.refresh);
   const refreshRecs = useRecommendationsStore((s) => s.refresh);
   const refreshMethods = usePaymentMethodsStore((s) => s.refresh);
@@ -40,8 +53,14 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     security.refresh();
+    prefs.refresh();
     canAuthenticate().then(setAuthAvailable);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const shiftHour = (key: 'quietStartHour' | 'quietEndHour', delta: number) => {
+    const current = key === 'quietStartHour' ? prefs.quietStartHour : prefs.quietEndHour;
+    prefs.update({ [key]: (current + delta + 24) % 24 } as { quietStartHour: number } | { quietEndHour: number });
+  };
 
   const onExport = async () => {
     setBusy(true);
@@ -85,6 +104,46 @@ export default function SettingsScreen() {
             </AppText>
           </Card>
         ) : null}
+
+        <Section title="Profile">
+          <Card style={styles.card}>
+            <Input
+              label="Your name (optional)"
+              placeholder="Add your name"
+              value={prefs.name ?? ''}
+              onChangeText={(t) => prefs.update({ name: t })}
+            />
+            <View>
+              <AppText size="sm" weight="medium" color={theme.colors.text.secondary} style={styles.fieldLabel}>
+                Default currency
+              </AppText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                {CURRENCIES.map((code) => {
+                  const active = prefs.defaultCurrency === code;
+                  return (
+                    <TouchableOpacity
+                      key={code}
+                      activeOpacity={0.7}
+                      onPress={() => prefs.update({ defaultCurrency: code })}
+                      style={[styles.chip, active && styles.chipActive]}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={`${code} currency`}
+                    >
+                      <AppText
+                        size="sm"
+                        weight={active ? 'semibold' : 'regular'}
+                        color={active ? theme.colors.text.inverse : theme.colors.text.secondary}
+                      >
+                        {CURRENCY_SYMBOLS[code]} {code}
+                      </AppText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </Card>
+        </Section>
 
         <Section title="Security">
           <Card style={styles.card}>
@@ -130,6 +189,54 @@ export default function SettingsScreen() {
                   );
                 })}
               </View>
+            </View>
+          </Card>
+        </Section>
+
+        <Section title="Notifications">
+          <Card style={styles.card}>
+            <ToggleField
+              label="Quiet hours"
+              hint="Don’t show reminders overnight."
+              value={prefs.quietHoursEnabled}
+              onChange={(v) => prefs.update({ quietHoursEnabled: v })}
+            />
+            {prefs.quietHoursEnabled ? (
+              <>
+                <View style={styles.divider} />
+                <View style={styles.dataRow}>
+                  <AppText weight="medium" style={styles.flex1}>
+                    From
+                  </AppText>
+                  <Stepper
+                    label={hourLabel(prefs.quietStartHour)}
+                    onMinus={() => shiftHour('quietStartHour', -1)}
+                    onPlus={() => shiftHour('quietStartHour', 1)}
+                  />
+                </View>
+                <View style={styles.dataRow}>
+                  <AppText weight="medium" style={styles.flex1}>
+                    Until
+                  </AppText>
+                  <Stepper
+                    label={hourLabel(prefs.quietEndHour)}
+                    onMinus={() => shiftHour('quietEndHour', -1)}
+                    onPlus={() => shiftHour('quietEndHour', 1)}
+                  />
+                </View>
+              </>
+            ) : null}
+            <View style={styles.divider} />
+            <View style={styles.dataRow}>
+              <View style={styles.flex1}>
+                <AppText weight="medium">Default reminders</AppText>
+                <AppText size="xs" color={theme.colors.text.tertiary}>
+                  Lead times for new items, in days before the due date.
+                </AppText>
+              </View>
+              <AppText weight="medium" color={theme.colors.text.secondary}>
+                {prefs.defaultLeadDays.join(' · ')}
+              </AppText>
             </View>
           </Card>
         </Section>
@@ -229,10 +336,80 @@ export default function SettingsScreen() {
                 </View>
               </View>
             )}
+
+            <View style={styles.divider} />
+
+            <View style={styles.dataRow}>
+              <View style={styles.flex1}>
+                <AppText weight="medium" color={theme.colors.text.tertiary}>
+                  Backup to cloud
+                </AppText>
+                <AppText size="xs" color={theme.colors.text.tertiary}>
+                  Sync an encrypted backup across devices.
+                </AppText>
+              </View>
+              <Badge label="Coming soon" variant="neutral" />
+            </View>
+          </Card>
+        </Section>
+
+        <Section title="About">
+          <Card style={styles.card}>
+            <View style={styles.dataRow}>
+              <AppText weight="medium" style={styles.flex1}>
+                Version
+              </AppText>
+              <AppText color={theme.colors.text.secondary}>{APP_VERSION}</AppText>
+            </View>
+            <View style={styles.divider} />
+            <AppText size="sm" color={theme.colors.text.secondary}>
+              Renewly keeps your subscriptions, bills, warranties, and documents on your
+              device. Made with care for calm, private life-admin.
+            </AppText>
+            <TouchableOpacity
+              onPress={() =>
+                Alert.alert(
+                  'Privacy',
+                  'Renewly stores everything locally on your device. Nothing is uploaded or shared. Sensitive numbers are masked and full values are encrypted behind your biometric.',
+                )
+              }
+              accessibilityRole="button"
+              accessibilityLabel="Privacy policy"
+            >
+              <AppText size="sm" weight="medium" color={theme.colors.accent}>
+                Privacy policy
+              </AppText>
+            </TouchableOpacity>
           </Card>
         </Section>
       </View>
     </Screen>
+  );
+}
+
+function Stepper({
+  label,
+  onMinus,
+  onPlus,
+}: {
+  label: string;
+  onMinus: () => void;
+  onPlus: () => void;
+}) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={styles.stepper}>
+      <TouchableOpacity onPress={onMinus} style={styles.stepperBtn} accessibilityRole="button" accessibilityLabel="Earlier">
+        <Ionicons name="remove" size={18} color={theme.colors.text.primary} />
+      </TouchableOpacity>
+      <AppText weight="semibold" style={styles.stepperLabel}>
+        {label}
+      </AppText>
+      <TouchableOpacity onPress={onPlus} style={styles.stepperBtn} accessibilityRole="button" accessibilityLabel="Later">
+        <Ionicons name="add" size={18} color={theme.colors.text.primary} />
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -318,5 +495,38 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   flex1: {
     flex: 1,
+  },
+  fieldLabel: {
+    marginBottom: theme.spacing.sm,
+  },
+  chipRow: {
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+  },
+  chip: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.full,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  chipActive: {
+    backgroundColor: theme.colors.accent,
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  stepperBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: theme.radius.full,
+    backgroundColor: theme.colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperLabel: {
+    minWidth: 44,
+    textAlign: 'center',
   },
 });
