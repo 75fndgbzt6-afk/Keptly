@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Renewly",
+    "slug": "renewly",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "renewly",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.renewly.app"
+    },
+    "android": {
+      "package": "com.renewly.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#F7F6F3"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "@react-native-community/datetimepicker"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
