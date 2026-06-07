@@ -16,6 +16,8 @@ import { initDatabase } from '@/db/schema';
 import { initNotifications, reconcile, addResponseListener } from '@/services/notifications';
 import { useRecommendationsStore } from '@/stores/recommendationsStore';
 import { useThemeStore } from '@/stores/themeStore';
+import { useOnboardingStore } from '@/stores/onboardingStore';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import { AppLockProvider } from '@/components/security';
 import { ThemeProvider, useTheme } from '@/components/theme';
 import { safeWarn } from '@/lib/safe-log';
@@ -41,7 +43,9 @@ export default function RootLayout() {
     (async () => {
       try {
         await useThemeStore.getState().refresh();
+        await useOnboardingStore.getState().refresh();
         await initDatabase();
+        await usePreferencesStore.getState().refresh();
         await initNotifications();
         await reconcile();
         await useRecommendationsStore.getState().refresh();
@@ -80,6 +84,7 @@ export default function RootLayout() {
             <Stack.Screen name="notifications" />
             <Stack.Screen name="vault" />
             <Stack.Screen name="settings" />
+            <Stack.Screen name="onboarding/index" />
             <Stack.Screen
               name="(modal)/add-item"
               options={{ presentation: 'modal' }}

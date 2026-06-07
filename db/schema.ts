@@ -5,7 +5,7 @@ import { SecureKeys, secureSet } from '@/services/secure-store';
 import { getDb } from './index';
 
 /** Bump this and add a migration step when the schema changes. */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 const CREATE_PAYMENT_METHODS = `
   CREATE TABLE IF NOT EXISTS payment_methods (
@@ -159,6 +159,19 @@ const MIGRATIONS: { version: number; up: (db: SQLiteDatabase) => Promise<void> }
       // into secure store, leaving only the masked display behind (SPEC §8).
       // payment_methods already holds only last4 — no card-number column to drop.
       await sweepLegacyIds(db);
+    },
+  },
+  {
+    version: 5,
+    up: async (db) => {
+      // Non-secret app preferences (profile name, default currency, quiet hours,
+      // default lead times). Names/amounts must NOT live in secure store (SPEC §8).
+      await db.execAsync(
+        `CREATE TABLE IF NOT EXISTS app_settings (
+           key TEXT PRIMARY KEY NOT NULL,
+           value TEXT NOT NULL
+         );`,
+      );
     },
   },
 ];

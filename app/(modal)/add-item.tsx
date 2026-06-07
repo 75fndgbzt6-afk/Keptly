@@ -30,6 +30,8 @@ import { todayISO } from '@/lib/date';
 import { createItem, getItem, updateItem } from '@/db/items';
 import { getFullId, setFullId, clearFullId } from '@/services/vault';
 import { useItemsStore } from '@/stores/itemsStore';
+import { usePreferencesStore } from '@/stores/preferencesStore';
+import { CURRENCY_SYMBOLS } from '@/constants/config';
 
 const CATEGORY_OPTIONS: Option<Category>[] = CATEGORIES.map((c) => ({ label: c, value: c }));
 const DOC_TYPE_OPTIONS: Option<string>[] = DOC_TYPES.map((d) => ({ label: d, value: d }));
@@ -85,6 +87,8 @@ export default function AddEditItemModal() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEdit = !!id;
   const refresh = useItemsStore((s) => s.refresh);
+  const defaultCurrency = usePreferencesStore((s) => s.defaultCurrency);
+  const currencySymbol = CURRENCY_SYMBOLS[defaultCurrency] ?? defaultCurrency;
 
   const [form, setForm] = useState<FormState>(initialForm);
   const [errors, setErrors] = useState<Errors>({});
@@ -181,7 +185,7 @@ export default function AddEditItemModal() {
       holderName: form.holderName.trim() || null,
       paymentMethodId: form.paymentMethodId,
       amount: amountValue,
-      currency: 'INR',
+      currency: defaultCurrency,
       billingCycle: form.billingCycle,
       startDate: form.startDate,
       autoRenew: form.autoRenew,
@@ -249,7 +253,7 @@ export default function AddEditItemModal() {
 
         <Section title="Billing">
           <Input
-            label="Amount (₹)"
+            label={`Amount (${currencySymbol})`}
             placeholder="0"
             keyboardType="decimal-pad"
             value={form.amount}

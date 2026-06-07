@@ -1,8 +1,17 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { CustomTabBar } from '@/components/navigation/CustomTabBar';
+import { useOnboardingStore } from '@/stores/onboardingStore';
 
 export default function TabLayout() {
+  const onboardingLoaded = useOnboardingStore((s) => s.loaded);
+  const onboardingComplete = useOnboardingStore((s) => s.complete);
+
+  // First launch: route into onboarding before showing the app.
+  if (onboardingLoaded && !onboardingComplete) {
+    return <Redirect href="/onboarding" />;
+  }
+
   return (
     <Tabs
       tabBar={(props) => <CustomTabBar {...props} />}

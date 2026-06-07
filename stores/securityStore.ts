@@ -14,9 +14,12 @@ export interface SecuritySettings {
   inactivityTimeoutMin: TimeoutMinutes;
 }
 
-/** Secure-by-default: both locks on, 5-minute app-lock grace. */
+/**
+ * App lock is opt-in (enabled during onboarding or in Settings) so a first launch
+ * isn't blocked before setup. The vault is always protected by default.
+ */
 const DEFAULTS: SecuritySettings = {
-  appLockEnabled: true,
+  appLockEnabled: false,
   vaultLockEnabled: true,
   inactivityTimeoutMin: 5,
 };
