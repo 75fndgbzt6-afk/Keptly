@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Alert, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Badge, Button } from '@/components/ui';
@@ -15,12 +15,21 @@ import {
 import { formatCurrency } from '@/lib/currency';
 import { formatDate, relativeDateLabel } from '@/lib/date';
 import { urgencyBadgeVariant, urgencyForDate } from '@/lib/urgency';
+import { primaryTrackType, reminderTracksForItem } from '@/lib/reminders';
+import { REMINDER_TYPE_LABELS } from '@/lib/notification-copy';
 import { getItem, deleteItem } from '@/db/items';
+import { scheduleTestNotification } from '@/services/notifications';
 import { useItemsStore } from '@/stores/itemsStore';
 import { usePaymentMethodsStore } from '@/stores/paymentMethodsStore';
 
 function billingCycleLabel(item: Item): string {
   return BILLING_CYCLE_OPTIONS.find((o) => o.value === item.billingCycle)?.label ?? item.billingCycle;
+}
+
+function leadSummary(leadDays: number[]): string {
+  if (leadDays.length === 0) return 'No reminders';
+  if (leadDays.every((d) => d > 0)) return `${leadDays.join(' / ')} days before`;
+  return leadDays.map((d) => (d === 0 ? 'on the day' : `${d}d before`)).join(' · ');
 }
 
 function paymentSummary(method: PaymentMethod): string {
@@ -55,6 +64,23 @@ export default function ItemDetailScreen() {
       load();
     }, [load]),
   );
+
+  const handleTestReminder = () => {
+    if (!item) return;
+    Alert.alert(
+      'Test reminder',
+      'Send a sample notification in 10 seconds? Leave the app to see it on the lock screen.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send',
+          onPress: async () => {
+            await scheduleTestNotification(item);
+          },
+        },
+      ],
+    );
+  };
 
   const handleDelete = () => {
     if (!item) return;
@@ -164,6 +190,8 @@ export default function ItemDetailScreen() {
           {item.notes ? <DetailRow label="Notes" value={item.notes} last /> : null}
         </Card>
 
+        <RemindersCard item={item} onEdit={() => router.push({ pathname: '/(modal)/edit-reminders', params: { id: item.id } })} />
+
         <View style={styles.actions}>
           <Button
             label="Edit"
@@ -172,9 +200,49 @@ export default function ItemDetailScreen() {
             fullWidth
           />
           <Button label="Delete" variant="danger" onPress={handleDelete} fullWidth />
+          {__DEV__ ? (
+            <Button label="Test reminder in 10s" variant="ghost" onPress={handleTestReminder} fullWidth />
+          ) : null}
         </View>
       </View>
     </Screen>
+  );
+}
+
+function RemindersCard({ item, onEdit }: { item: Item; onEdit: () => void }) {
+  const tracks = reminderTracksForItem(item);
+  const editable = primaryTrackType(item) !== null;
+
+  return (
+    <Card style={styles.card}>
+      <View style={[styles.row, tracks.length > 0 && styles.rowBorder]}>
+        <AppText weight="semibold">Reminders</AppText>
+        {editable ? (
+          <TouchableOpacity onPress={onEdit} accessibilityRole="button" accessibilityLabel="Edit reminder timing">
+            <AppText size="sm" color={theme.colors.accent} weight="medium">
+              Edit
+            </AppText>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      {tracks.length === 0 ? (
+        <View style={styles.row}>
+          <AppText size="sm" color={theme.colors.text.secondary}>
+            No date-based reminders for this item.
+          </AppText>
+        </View>
+      ) : (
+        tracks.map((track, i) => (
+          <DetailRow
+            key={track.type}
+            label={REMINDER_TYPE_LABELS[track.type]}
+            value={leadSummary(track.leadDays)}
+            last={i === tracks.length - 1}
+          />
+        ))
+      )}
+    </Card>
   );
 }
 

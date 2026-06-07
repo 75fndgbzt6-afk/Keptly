@@ -11,6 +11,7 @@ import {
 } from '@/types';
 import { generateId } from '@/lib/id';
 import { calcNextDate } from '@/lib/date';
+import { scheduleForItem, cancelForItem } from '@/services/notifications';
 import { getDb } from './index';
 
 interface ItemRow {
@@ -32,6 +33,7 @@ interface ItemRow {
   notes: string | null;
   attachmentUri: string | null;
   details: string;
+  reminderLeadDays: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -44,6 +46,19 @@ function parseDetails(raw: string): ItemDetails {
     // fall through
   }
   return { kind: 'none' };
+}
+
+function parseLeadDays(raw: string | null): number[] | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed) && parsed.every((n) => typeof n === 'number')) {
+      return parsed as number[];
+    }
+  } catch {
+    // fall through
+  }
+  return null;
 }
 
 function rowToItem(row: ItemRow): Item {
@@ -66,6 +81,7 @@ function rowToItem(row: ItemRow): Item {
     notes: row.notes,
     attachmentUri: row.attachmentUri,
     details: parseDetails(row.details),
+    reminderLeadDays: parseLeadDays(row.reminderLeadDays),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -74,14 +90,15 @@ function rowToItem(row: ItemRow): Item {
 const SELECT_COLUMNS = `
   id, name, category, holderName, paymentMethodId, amount, currency,
   billingCycle, startDate, nextDate, autoRenew, isFreeTrial, trialEndDate,
-  status, intentFlag, notes, attachmentUri, details, createdAt, updatedAt
+  status, intentFlag, notes, attachmentUri, details, reminderLeadDays,
+  createdAt, updatedAt
 `;
 
 async function upsert(item: Item): Promise<void> {
   const db = await getDb();
   await db.runAsync(
     `INSERT OR REPLACE INTO items (${SELECT_COLUMNS})
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       item.id,
       item.name,
@@ -101,6 +118,7 @@ async function upsert(item: Item): Promise<void> {
       item.notes,
       item.attachmentUri,
       JSON.stringify(item.details),
+      item.reminderLeadDays ? JSON.stringify(item.reminderLeadDays) : null,
       item.createdAt,
       item.updatedAt,
     ],
@@ -113,10 +131,12 @@ export async function createItem(input: NewItemInput): Promise<Item> {
     ...input,
     id: generateId(),
     nextDate: calcNextDate(input.startDate, input.billingCycle),
+    reminderLeadDays: null,
     createdAt: now,
     updatedAt: now,
   };
   await upsert(item);
+  await scheduleForItem(item);
   return item;
 }
 
@@ -135,10 +155,27 @@ export async function updateItem(id: string, patch: ItemPatch): Promise<Item | n
   merged.nextDate = calcNextDate(merged.startDate, merged.billingCycle);
 
   await upsert(merged);
+  // Reschedule reminders; a cancelled/expired item gets its reminders cleared.
+  if (merged.status === 'active' || merged.status === 'paused') {
+    await scheduleForItem(merged);
+  } else {
+    await cancelForItem(merged.id);
+  }
+  return merged;
+}
+
+/** Set nextDate explicitly (e.g. after "Mark done") without recomputing, then reschedule. */
+export async function updateItemNextDate(id: string, nextDate: string): Promise<Item | null> {
+  const existing = await getItem(id);
+  if (!existing) return null;
+  const merged: Item = { ...existing, nextDate, updatedAt: new Date().toISOString() };
+  await upsert(merged);
+  await scheduleForItem(merged);
   return merged;
 }
 
 export async function deleteItem(id: string): Promise<void> {
+  await cancelForItem(id);
   const db = await getDb();
   await db.runAsync('DELETE FROM items WHERE id = ?', [id]);
 }

@@ -111,6 +111,8 @@ export interface Item {
   notes: string | null;
   attachmentUri: string | null;
   details: ItemDetails;
+  /** Per-item override of reminder lead-time days for its primary track. null = category defaults. */
+  reminderLeadDays: number[] | null;
   createdAt: string; // ISO datetime
   updatedAt: string; // ISO datetime
 }
@@ -152,7 +154,10 @@ export interface Recommendation {
 
 // --- Input shapes for the data-access layer ---
 
-export type NewItemInput = Omit<Item, 'id' | 'nextDate' | 'createdAt' | 'updatedAt'>;
+export type NewItemInput = Omit<
+  Item,
+  'id' | 'nextDate' | 'createdAt' | 'updatedAt' | 'reminderLeadDays'
+>;
 export type ItemPatch = Partial<Omit<Item, 'id' | 'createdAt' | 'updatedAt'>>;
 
 export type NewPaymentMethodInput = Omit<PaymentMethod, 'id'>;

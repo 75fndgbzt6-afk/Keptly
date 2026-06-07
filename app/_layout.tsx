@@ -11,6 +11,7 @@ import {
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
 import { initDatabase } from '@/db/schema';
+import { initNotifications, reconcile, addResponseListener } from '@/services/notifications';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -24,9 +25,22 @@ export default function RootLayout() {
   const [dbReady, setDbReady] = useState(false);
 
   useEffect(() => {
-    initDatabase()
-      .catch((e) => console.error('Database init failed', e))
-      .finally(() => setDbReady(true));
+    (async () => {
+      try {
+        await initDatabase();
+        await initNotifications();
+        await reconcile();
+      } catch (e) {
+        console.error('Startup init failed', e);
+      } finally {
+        setDbReady(true);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    const sub = addResponseListener();
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {
@@ -45,8 +59,17 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="item/[id]" />
+        <Stack.Screen name="notifications" />
         <Stack.Screen
           name="(modal)/add-item"
+          options={{ presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="(modal)/enable-reminders"
+          options={{ presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="(modal)/edit-reminders"
           options={{ presentation: 'modal' }}
         />
       </Stack>

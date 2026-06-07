@@ -80,6 +80,24 @@ export function calcNextDate(
   return toISODate(next);
 }
 
+/** Add (or subtract, with a negative) whole days to a Date. */
+export function addDays(date: Date, days: number): Date {
+  const d = new Date(date.getTime());
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+/**
+ * A local Date for an ISO date at a given hour, optionally offset by whole days.
+ * e.g. isoDateTimeAtHour('2026-06-07', 9, -7) → 9:00 AM, seven days before.
+ */
+export function isoDateTimeAtHour(iso: string, hour: number, offsetDays = 0): Date {
+  const d = fromISODate(iso);
+  d.setDate(d.getDate() + offsetDays);
+  d.setHours(hour, 0, 0, 0);
+  return d;
+}
+
 /** Whole days from today until the given ISO date. Negative if in the past. */
 export function daysUntil(iso: string | null | undefined, from: Date = new Date()): number | null {
   if (!iso) return null;
