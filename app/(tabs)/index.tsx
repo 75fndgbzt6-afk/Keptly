@@ -4,7 +4,7 @@ import { useFocusEffect, useRootNavigationState, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Badge, Button, EmptyState } from '@/components/ui';
 import { ReminderPermissionBanner } from '@/components/notifications/ReminderPermissionBanner';
-import { Donut } from '@/components/charts';
+import { Donut, ChartModal } from '@/components/charts';
 import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
 import { chartColorAt } from '@/constants/chart-palette';
@@ -44,6 +44,7 @@ export default function HomeScreen() {
   const refreshPermission = useNotificationsStore((s) => s.refresh);
 
   const [alerts, setAlerts] = useState<ActiveAlert[]>([]);
+  const [donutOpen, setDonutOpen] = useState(false);
 
   useEffect(() => {
     refreshPermission();
@@ -144,9 +145,9 @@ export default function HomeScreen() {
             {donutSlices.length > 0 ? (
               <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={() => router.push('/(tabs)/insights')}
+                onPress={() => setDonutOpen(true)}
                 accessibilityRole="button"
-                accessibilityLabel="Spend by category"
+                accessibilityLabel="Spend by category, tap to enlarge"
               >
                 <Donut data={donutSlices} size={90} thickness={13}>
                   <AppText size="md" weight="bold">
@@ -159,6 +160,36 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ) : null}
           </Card>
+
+          <ChartModal visible={donutOpen} title="Spend by category" onClose={() => setDonutOpen(false)}>
+            <View style={styles.modalDonut}>
+              <Donut data={donutSlices} size={200} thickness={30}>
+                <AppText size="xs" color={theme.colors.text.tertiary}>
+                  Monthly
+                </AppText>
+                <AppText size="lg" weight="bold">
+                  {formatCurrency(monthly)}
+                </AppText>
+              </Donut>
+            </View>
+            <View style={styles.modalLegend}>
+              {spendByCategory.map((c, i) => (
+                <View key={c.category} style={styles.modalLegendRow}>
+                  <View style={[styles.legendDot, { backgroundColor: chartColorAt(i) }]} />
+                  <AppText size="sm" style={styles.flex1} numberOfLines={1}>
+                    {c.category}
+                  </AppText>
+                  <AppText size="sm" weight="medium">
+                    {formatCurrency(c.monthlyAmount)}
+                  </AppText>
+                  <AppText size="xs" color={theme.colors.text.tertiary} style={styles.legendPct}>
+                    {monthly > 0 ? Math.round((c.monthlyAmount / monthly) * 100) : 0}%
+                  </AppText>
+                </View>
+              ))}
+            </View>
+            <Button label="Open Insights" variant="secondary" onPress={() => { setDonutOpen(false); router.push('/(tabs)/insights'); }} fullWidth />
+          </ChartModal>
 
           {potentialSavings > 0 ? (
             <TouchableOpacity
@@ -370,6 +401,26 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.colors.accentLight,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  modalDonut: {
+    alignItems: 'center',
+  },
+  modalLegend: {
+    gap: theme.spacing.sm,
+  },
+  modalLegendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendPct: {
+    width: 40,
+    textAlign: 'right',
   },
   section: {
     gap: theme.spacing.sm,

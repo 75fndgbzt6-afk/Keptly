@@ -7,3 +7,4 @@ export { StackedAreaChart } from './StackedAreaChart';
 export type { StackSeries } from './StackedAreaChart';
 export { Sparkline } from './Sparkline';
 export { Heatmap } from './Heatmap';
+export { ChartModal } from './ChartModal';

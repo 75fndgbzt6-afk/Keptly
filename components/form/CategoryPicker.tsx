@@ -3,7 +3,7 @@ import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
-import { AppText, Input } from '@/components/ui';
+import { AppText, Input, Marquee } from '@/components/ui';
 import { CATEGORIES, iconForCategory } from '@/lib/category';
 
 const OTHER = 'Other';
@@ -38,15 +38,12 @@ export function CategoryPicker({ label, value, onChange, customCategories }: Cat
       accessibilityLabel={name}
     >
       <Ionicons name={icon} size={22} color={active ? theme.colors.accent : theme.colors.text.secondary} />
-      <AppText
-        size="xs"
+      <Marquee
+        text={name}
+        active={active}
         weight={active ? 'semibold' : 'regular'}
         color={active ? theme.colors.accent : theme.colors.text.secondary}
-        align="center"
-        numberOfLines={1}
-      >
-        {name}
-      </AppText>
+      />
     </TouchableOpacity>
   );
 

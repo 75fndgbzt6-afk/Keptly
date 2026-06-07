@@ -13,12 +13,12 @@ export interface RingDatum {
 }
 
 /** Apple-Watch-style summary card: three rings + a compact legend (no clutter). */
-export function SummaryRings({ rings }: { rings: RingDatum[] }) {
+export function SummaryRings({ rings, onPress }: { rings: RingDatum[]; onPress?: () => void }) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
 
   return (
-    <Card style={styles.card}>
+    <Card style={styles.card} onPress={onPress} accessibilityLabel="Activity rings, tap to enlarge">
       <ActivityRings
         size={104}
         thickness={11}

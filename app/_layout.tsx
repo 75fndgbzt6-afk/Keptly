@@ -78,7 +78,14 @@ export default function RootLayout() {
         <ThemeProvider>
           <ThemedStatusBar />
           <AppLockProvider>
-          <Stack screenOptions={{ headerShown: false }}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              animationDuration: 240,
+              gestureEnabled: true,
+            }}
+          >
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="item/[id]" />
             <Stack.Screen name="notifications" />

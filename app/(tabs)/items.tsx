@@ -8,8 +8,9 @@ import {
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Screen, AppText, Input, EmptyState, SkeletonList } from '@/components/ui';
+import { Screen, AppText, Input, EmptyState, SkeletonList, Button } from '@/components/ui';
 import { ItemRow, SummaryRings, useItemContextMenu, RingDatum } from '@/components/items';
+import { ActivityRings, ChartModal } from '@/components/charts';
 import { SelectField } from '@/components/form';
 import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
@@ -71,7 +72,9 @@ export default function ItemsScreen() {
   const customCategories = useCategoriesStore((s) => s.custom);
   const refreshCategories = useCategoriesStore((s) => s.refresh);
   const monthlyBudget = usePreferencesStore((s) => s.monthlyBudget);
+  const updatePrefs = usePreferencesStore((s) => s.update);
   const onLongPress = useItemContextMenu();
+  const [ringsOpen, setRingsOpen] = useState(false);
 
   const [query, setQuery] = useState('');
   const [chip, setChip] = useState<ChipValue>('all');
@@ -242,7 +245,7 @@ export default function ItemsScreen() {
             <FlatList
               data={visible}
               keyExtractor={(item) => item.id}
-              ListHeaderComponent={<SummaryRings rings={rings} />}
+              ListHeaderComponent={<SummaryRings rings={rings} onPress={() => setRingsOpen(true)} />}
               renderItem={({ item }) => {
                 const stat = statsMap.get(item.id);
                 return (
@@ -271,11 +274,62 @@ export default function ItemsScreen() {
           }}
         />
       )}
+
+      <ChartModal visible={ringsOpen} title="Your month at a glance" onClose={() => setRingsOpen(false)}>
+        <View style={styles.modalRings}>
+          <ActivityRings size={200} thickness={18} gap={6} rings={rings.map((r) => ({ fraction: r.fraction, color: r.color }))} />
+        </View>
+        <View style={styles.modalLegend}>
+          {rings.map((r) => (
+            <View key={r.label} style={styles.modalLegendRow}>
+              <View style={[styles.legendDot, { backgroundColor: r.color }]} />
+              <View style={styles.flex1}>
+                <AppText size="sm" weight="medium">
+                  {r.label}
+                </AppText>
+                <AppText size="xs" color={theme.colors.text.tertiary}>
+                  {r.caption}
+                </AppText>
+              </View>
+              <AppText size="sm" weight="semibold">
+                {Math.round(r.fraction * 100)}%
+              </AppText>
+            </View>
+          ))}
+        </View>
+        <Input
+          label="Monthly budget (0 = auto)"
+          keyboardType="number-pad"
+          value={monthlyBudget > 0 ? String(monthlyBudget) : ''}
+          placeholder="Set a target to customise the spend ring"
+          onChangeText={(t) => updatePrefs({ monthlyBudget: Number(t.replace(/\D/g, '')) || 0 })}
+        />
+        <Button label="Done" variant="secondary" onPress={() => setRingsOpen(false)} fullWidth />
+      </ChartModal>
     </Screen>
   );
 }
 
 const makeStyles = (theme: Theme) => StyleSheet.create({
+  modalRings: {
+    alignItems: 'center',
+  },
+  modalLegend: {
+    gap: theme.spacing.sm,
+  },
+  modalLegendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  flex1: {
+    flex: 1,
+  },
   header: {
     paddingHorizontal: theme.spacing.base,
     paddingTop: theme.spacing.md,
