@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, TextStyle } from 'react-native';
+import { Text, TextStyle, AccessibilityRole } from 'react-native';
 import { fontSize, lineHeight } from '@/constants/theme';
 import { useTheme } from '@/components/theme';
 
@@ -21,6 +21,8 @@ interface AppTextProps {
   align?: 'left' | 'center' | 'right';
   numberOfLines?: number;
   style?: TextStyle;
+  accessibilityRole?: AccessibilityRole;
+  accessibilityLabel?: string;
 }
 
 export function AppText({
@@ -31,11 +33,15 @@ export function AppText({
   align = 'left',
   numberOfLines,
   style,
+  accessibilityRole,
+  accessibilityLabel,
 }: AppTextProps) {
   const theme = useTheme();
   return (
     <Text
       numberOfLines={numberOfLines}
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={accessibilityLabel}
       style={[
         {
           fontFamily: FONT_FAMILY[weight],

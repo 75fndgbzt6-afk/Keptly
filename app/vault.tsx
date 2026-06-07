@@ -85,7 +85,7 @@ export default function VaultScreen() {
     <Screen padded={false}>
       <View style={styles.header}>
         <Button label="Back" variant="ghost" onPress={() => router.back()} style={styles.backButton} />
-        <AppText size="xl" weight="bold" style={styles.title}>
+        <AppText size="xl" weight="bold" style={styles.title} accessibilityRole="header">
           Vault
         </AppText>
       </View>

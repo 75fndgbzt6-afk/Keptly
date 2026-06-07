@@ -73,7 +73,7 @@ export default function CalendarScreen() {
   return (
     <Screen padded={false}>
       <View style={styles.header}>
-        <AppText size="xl" weight="bold">
+        <AppText size="xl" weight="bold" accessibilityRole="header">
           Calendar
         </AppText>
       </View>

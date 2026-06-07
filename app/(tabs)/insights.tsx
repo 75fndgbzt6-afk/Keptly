@@ -106,7 +106,7 @@ export default function InsightsScreen() {
   return (
     <Screen padded={false}>
       <View style={styles.header}>
-        <AppText size="xl" weight="bold">
+        <AppText size="xl" weight="bold" accessibilityRole="header">
           Insights
         </AppText>
       </View>

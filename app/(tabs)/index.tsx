@@ -83,7 +83,7 @@ export default function HomeScreen() {
   return (
     <Screen padded={false}>
       <View style={styles.header}>
-        <AppText size="xl" weight="bold">
+        <AppText size="xl" weight="bold" accessibilityRole="header">
           Renewly
         </AppText>
         <View style={styles.headerActions}>

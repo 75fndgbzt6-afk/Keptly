@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Screen, AppText, Input, EmptyState } from '@/components/ui';
+import { Screen, AppText, Input, EmptyState, SkeletonList } from '@/components/ui';
 import { ItemRow } from '@/components/items';
 import { SelectField } from '@/components/form';
 import { Theme } from '@/constants/theme';
@@ -58,6 +58,7 @@ export default function ItemsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ category?: string }>();
   const items = useItemsStore((s) => s.items);
+  const loaded = useItemsStore((s) => s.loaded);
   const refresh = useItemsStore((s) => s.refresh);
 
   const [query, setQuery] = useState('');
@@ -106,12 +107,14 @@ export default function ItemsScreen() {
   return (
     <Screen padded={false}>
       <View style={styles.header}>
-        <AppText size="xl" weight="bold">
+        <AppText size="xl" weight="bold" accessibilityRole="header">
           My Items
         </AppText>
       </View>
 
-      {hasItems ? (
+      {!loaded ? (
+        <SkeletonList count={6} />
+      ) : hasItems ? (
         <>
           <View style={styles.controls}>
             <Input

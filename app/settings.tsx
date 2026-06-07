@@ -90,7 +90,7 @@ export default function SettingsScreen() {
     <Screen padded={false} scroll>
       <View style={styles.topBar}>
         <Button label="Back" variant="ghost" onPress={() => router.back()} style={styles.backButton} />
-        <AppText size="xl" weight="bold" style={styles.title}>
+        <AppText size="xl" weight="bold" style={styles.title} accessibilityRole="header">
           Settings
         </AppText>
       </View>
