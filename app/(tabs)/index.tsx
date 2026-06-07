@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRootNavigationState, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Badge, Button, EmptyState } from '@/components/ui';
 import { ReminderPermissionBanner } from '@/components/notifications/ReminderPermissionBanner';
@@ -27,6 +27,7 @@ import { useNotificationsStore } from '@/stores/notificationsStore';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const navReady = !!useRootNavigationState()?.key;
   const items = useItemsStore((s) => s.items);
   const refreshItems = useItemsStore((s) => s.refresh);
   const potentialSavings = useRecommendationsStore((s) => s.potentialSavings);
@@ -43,11 +44,12 @@ export default function HomeScreen() {
   }, [refreshPermission]);
 
   // Show the calm pre-prompt once, before the OS dialog, if we've never asked.
+  // Wait for the root navigator to mount before navigating.
   useEffect(() => {
-    if (permission === 'undetermined' && !asked) {
+    if (navReady && permission === 'undetermined' && !asked) {
       router.push('/(modal)/enable-reminders');
     }
-  }, [permission, asked, router]);
+  }, [navReady, permission, asked, router]);
 
   const reload = useCallback(async () => {
     await refreshItems();
