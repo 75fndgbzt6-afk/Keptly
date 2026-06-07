@@ -5,7 +5,8 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "renewly",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -16,18 +17,34 @@
     "android": {
       "package": "com.renewly.app",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F7F6F3"
       }
     },
     "web": {
       "bundler": "metro",
-      "output": "static"
+      "output": "static",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
       "expo-sqlite",
       "expo-secure-store",
       "@react-native-community/datetimepicker",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#F7F6F3",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "imageWidth": 200,
+            "backgroundColor": "#1A1917"
+          }
+        }
+      ],
       [
         "expo-notifications",
         {
