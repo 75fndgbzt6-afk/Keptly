@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { AppText } from './AppText';
 import { Button } from './Button';
 
@@ -17,6 +18,8 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({ icon, title, message, action, style }: EmptyStateProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={[styles.container, style]}>
       {icon ? (
@@ -44,7 +47,7 @@ export function EmptyState({ icon, title, message, action, style }: EmptyStatePr
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',

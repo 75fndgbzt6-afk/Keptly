@@ -1,11 +1,14 @@
 import React from 'react';
 import { TouchableOpacity, Linking, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { AppText } from '@/components/ui';
 
 /** Discreet Home banner shown when notification permission is off. */
 export function ReminderPermissionBanner() {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <TouchableOpacity
       activeOpacity={0.8}
@@ -23,7 +26,7 @@ export function ReminderPermissionBanner() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   banner: {
     flexDirection: 'row',
     alignItems: 'center',

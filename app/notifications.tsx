@@ -3,7 +3,8 @@ import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Button, EmptyState } from '@/components/ui';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { Item, Reminder, ReminderType } from '@/types';
 import { REMINDER_TYPE_LABELS } from '@/lib/notification-copy';
 import { relativeDateLabel } from '@/lib/date';
@@ -27,6 +28,8 @@ function datePart(iso: string): string {
 }
 
 export default function NotificationsCenter() {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const items = useItemsStore((s) => s.items);
   const refreshItems = useItemsStore((s) => s.refresh);
@@ -128,6 +131,8 @@ export default function NotificationsCenter() {
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.section}>
       <AppText size="sm" weight="semibold" color={theme.colors.text.tertiary}>
@@ -151,6 +156,8 @@ function ReminderCard({
   onAction?: (actionId: string, r: Reminder) => void;
   onOpen: () => void;
 }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const dimmed = reminder.status === 'dismissed';
   return (
     <Card style={styles.card}>
@@ -190,7 +197,7 @@ function ReminderCard({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',

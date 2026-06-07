@@ -4,7 +4,8 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { AppText } from '@/components/ui/AppText';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -23,6 +24,8 @@ const TAB_CONFIG: Record<string, TabConfig> = {
 };
 
 export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -94,7 +97,7 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   container: {
     backgroundColor: theme.colors.surface,
     borderTopWidth: StyleSheet.hairlineWidth,

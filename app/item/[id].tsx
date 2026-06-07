@@ -4,7 +4,8 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Badge, Button } from '@/components/ui';
 import { RevealableValue } from '@/components/security';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { Item, ItemDetails, IntentFlag, PaymentMethod } from '@/types';
 import { CATEGORY_ICONS } from '@/lib/category';
 import {
@@ -52,6 +53,8 @@ function paymentSummary(method: PaymentMethod): string {
 }
 
 export default function ItemDetailScreen() {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const refresh = useItemsStore((s) => s.refresh);
@@ -312,6 +315,8 @@ function IntentControl({
   value: IntentFlag;
   onChange: (flag: IntentFlag) => void;
 }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.intentControl}>
       {INTENT_SEGMENTS.map((seg) => {
@@ -340,6 +345,8 @@ function IntentControl({
 }
 
 function RemindersCard({ item, onEdit }: { item: Item; onEdit: () => void }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const tracks = reminderTracksForItem(item);
   const editable = primaryTrackType(item) !== null;
 
@@ -387,6 +394,8 @@ function SecuredCard({
   onAttachScan: () => void;
   onRemoveScan: () => void;
 }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const isDocument = item.details.kind === 'document';
   const masked = isDocument ? documentDisplayId(item) : null;
   const hasScan = !!item.attachmentUri;
@@ -444,6 +453,7 @@ function SecuredCard({
 }
 
 function DetailsCard({ details }: { details: ItemDetails }) {
+  const styles = useThemedStyles(makeStyles);
   const rows = detailRows(details);
   if (rows.length === 0) return null;
   return (
@@ -512,6 +522,8 @@ function DetailRow({
   badge?: { label: string; variant: 'good' | 'warning' | 'danger' | 'neutral' };
   last?: boolean;
 }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={[styles.row, !last && styles.rowBorder]}>
       <AppText size="sm" color={theme.colors.text.secondary}>
@@ -528,12 +540,13 @@ function DetailRow({
 }
 
 function BackButton({ onPress }: { onPress: () => void }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <Button label="Back" variant="ghost" onPress={onPress} style={styles.backButton} />
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   center: {
     flex: 1,
     alignItems: 'center',

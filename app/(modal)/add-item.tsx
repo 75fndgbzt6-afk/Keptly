@@ -4,7 +4,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Button, Input } from '@/components/ui';
 import { SelectField, DateField, ToggleField, PaymentMethodPicker } from '@/components/form';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import {
   BillingCycle,
   Category,
@@ -79,6 +80,7 @@ function initialForm(): FormState {
 type Errors = Partial<Record<'name' | 'amount' | 'trialEndDate', string>>;
 
 export default function AddEditItemModal() {
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEdit = !!id;
@@ -519,6 +521,8 @@ function InsuranceFields({
 // --- Layout helpers ---
 
 function ModalHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <>
       <View style={styles.handle} />
@@ -540,6 +544,8 @@ function ModalHeader({ title, onClose }: { title: string; onClose: () => void })
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.section}>
       <AppText size="sm" weight="semibold" color={theme.colors.text.tertiary}>
@@ -550,7 +556,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   handle: {
     width: 36,
     height: 4,

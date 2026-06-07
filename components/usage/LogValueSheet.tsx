@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, View, TouchableOpacity, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { AppText, Button, Input } from '@/components/ui';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 
 interface LogValueSheetProps {
   visible: boolean;
@@ -24,6 +25,7 @@ export function LogValueSheet({
   onClose,
   onSubmit,
 }: LogValueSheetProps) {
+  const styles = useThemedStyles(makeStyles);
   const [value, setValue] = useState('');
   const [unit, setUnit] = useState(defaultUnit ?? '');
 
@@ -78,7 +80,7 @@ export function LogValueSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.35)',

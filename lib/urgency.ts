@@ -1,5 +1,5 @@
 // Maps an upcoming date to an urgency level + theme color (green/amber/red).
-import { theme } from '@/constants/theme';
+import { Palette } from '@/constants/theme';
 import { daysUntil } from './date';
 
 export type UrgencyLevel = 'good' | 'warning' | 'danger' | 'none';
@@ -16,17 +16,17 @@ export function urgencyForDate(
   return 'good';
 }
 
-export function urgencyColor(level: UrgencyLevel): string {
+export function urgencyColor(level: UrgencyLevel, colors: Palette): string {
   switch (level) {
     case 'danger':
-      return theme.colors.status.danger;
+      return colors.status.danger;
     case 'warning':
-      return theme.colors.status.warning;
+      return colors.status.warning;
     case 'good':
-      return theme.colors.status.good;
+      return colors.status.good;
     case 'none':
     default:
-      return theme.colors.text.tertiary;
+      return colors.text.tertiary;
   }
 }
 

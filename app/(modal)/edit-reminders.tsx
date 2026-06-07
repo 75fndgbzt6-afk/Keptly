@@ -3,7 +3,8 @@ import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Button } from '@/components/ui';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { Item } from '@/types';
 import { DEFAULT_LEAD_DAYS, primaryTrackType } from '@/lib/reminders';
 import { REMINDER_TYPE_LABELS } from '@/lib/notification-copy';
@@ -17,6 +18,8 @@ function leadLabel(days: number): string {
 }
 
 export default function EditRemindersModal() {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const refresh = useItemsStore((s) => s.refresh);
@@ -109,7 +112,7 @@ export default function EditRemindersModal() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',

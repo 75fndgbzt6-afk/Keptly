@@ -2,9 +2,10 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card } from '@/components/ui';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { Recommendation } from '@/types';
-import { RECOMMENDATION_META, RECOMMENDATION_APPLY_LABEL } from '@/lib/recommendations';
+import { RECOMMENDATION_META, RECOMMENDATION_APPLY_LABEL, recommendationTint } from '@/lib/recommendations';
 import { formatCurrency } from '@/lib/currency';
 
 interface RecommendationCardProps {
@@ -20,13 +21,16 @@ export function RecommendationCard({
   onApply,
   onDismiss,
 }: RecommendationCardProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const meta = RECOMMENDATION_META[recommendation.type];
+  const { tint, tintBg } = recommendationTint(meta.tone, theme.colors);
 
   return (
     <Card style={styles.card}>
       <View style={styles.topRow}>
-        <View style={[styles.iconChip, { backgroundColor: meta.tintBg }]}>
-          <Ionicons name={meta.icon} size={18} color={meta.tint} />
+        <View style={[styles.iconChip, { backgroundColor: tintBg }]}>
+          <Ionicons name={meta.icon} size={18} color={tint} />
         </View>
         <View style={styles.headingText}>
           <AppText weight="semibold" numberOfLines={1}>
@@ -72,7 +76,7 @@ export function RecommendationCard({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   card: {
     gap: theme.spacing.md,
   },

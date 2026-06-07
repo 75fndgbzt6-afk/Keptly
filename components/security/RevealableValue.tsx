@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText } from '@/components/ui';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { requireUnlock } from '@/services/app-lock';
 
 const REVEAL_SECONDS = 30;
@@ -24,6 +25,8 @@ interface RevealableValueProps {
  * revealed value is held in local state only — never logged, copied, or sent.
  */
 export function RevealableValue({ masked, reason, getFull, canReveal = true }: RevealableValueProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [full, setFull] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -86,7 +89,7 @@ export function RevealableValue({ masked, reason, getFull, canReveal = true }: R
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   row: {
     flexShrink: 1,
     alignItems: 'flex-end',

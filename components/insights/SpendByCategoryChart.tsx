@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { View, TouchableOpacity, LayoutChangeEvent, StyleSheet } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 import { AppText } from '@/components/ui';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { Category } from '@/types';
 import { CategorySpend } from '@/services/dashboard';
 import { formatCurrency } from '@/lib/currency';
@@ -16,6 +17,8 @@ const BAR_HEIGHT = 10;
 
 /** Calm single-accent horizontal bars, one row per category, tap to drill in. */
 export function SpendByCategoryChart({ data, onSelect }: SpendByCategoryChartProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [width, setWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
   const max = Math.max(1, ...data.map((d) => d.monthlyAmount));
@@ -57,7 +60,7 @@ export function SpendByCategoryChart({ data, onSelect }: SpendByCategoryChartPro
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   container: {
     gap: theme.spacing.md,
   },

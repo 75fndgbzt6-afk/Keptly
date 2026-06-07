@@ -3,7 +3,8 @@ import { View, Image, FlatList, TouchableOpacity, StyleSheet } from 'react-nativ
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Badge, Button, EmptyState } from '@/components/ui';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { Item } from '@/types';
 import { CATEGORY_ICONS } from '@/lib/category';
 import { documentDisplayId } from '@/lib/masking';
@@ -23,6 +24,8 @@ function expiryFor(item: Item): string | null {
 }
 
 export default function VaultScreen() {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const items = useItemsStore((s) => s.items);
   const refresh = useItemsStore((s) => s.refresh);
@@ -109,6 +112,8 @@ export default function VaultScreen() {
 }
 
 function VaultRow({ item, onPress }: { item: Item; onPress: () => void }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const masked = documentDisplayId(item);
   const expiry = expiryFor(item);
   const level = urgencyForDate(expiry);
@@ -137,7 +142,7 @@ function VaultRow({ item, onPress }: { item: Item; onPress: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   topBar: {
     paddingHorizontal: theme.spacing.sm,
     paddingTop: theme.spacing.xs,

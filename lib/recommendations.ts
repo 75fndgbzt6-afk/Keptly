@@ -3,50 +3,44 @@
 import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { RecommendationType } from '@/types';
-import { theme } from '@/constants/theme';
+import { Palette } from '@/constants/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+/** Semantic tone for a recommendation type; resolved to colors at render time. */
+export type RecommendationTone = 'danger' | 'warning' | 'accent' | 'good';
 
 interface RecommendationMeta {
   label: string;
   icon: IoniconName;
-  /** Accent used for the type's icon chip. */
-  tint: string;
-  tintBg: string;
+  tone: RecommendationTone;
   /** Grouping order on the Insights list (lower = higher up). */
   order: number;
 }
 
 export const RECOMMENDATION_META: Record<RecommendationType, RecommendationMeta> = {
-  trial_ending: {
-    label: 'Trial ending',
-    icon: 'hourglass-outline',
-    tint: theme.colors.status.danger,
-    tintBg: theme.colors.status.dangerLight,
-    order: 0,
-  },
-  cancel: {
-    label: 'Cancel candidate',
-    icon: 'close-circle-outline',
-    tint: theme.colors.status.warning,
-    tintBg: theme.colors.status.warningLight,
-    order: 1,
-  },
-  duplicate: {
-    label: 'Possible overlap',
-    icon: 'copy-outline',
-    tint: theme.colors.accent,
-    tintBg: theme.colors.accentLight,
-    order: 2,
-  },
-  cycle_optimization: {
-    label: 'Cycle tip',
-    icon: 'swap-horizontal-outline',
-    tint: theme.colors.status.good,
-    tintBg: theme.colors.status.goodLight,
-    order: 3,
-  },
+  trial_ending: { label: 'Trial ending', icon: 'hourglass-outline', tone: 'danger', order: 0 },
+  cancel: { label: 'Cancel candidate', icon: 'close-circle-outline', tone: 'warning', order: 1 },
+  duplicate: { label: 'Possible overlap', icon: 'copy-outline', tone: 'accent', order: 2 },
+  cycle_optimization: { label: 'Cycle tip', icon: 'swap-horizontal-outline', tone: 'good', order: 3 },
 };
+
+/** Resolve a tone to its icon color + chip background for the active palette. */
+export function recommendationTint(tone: RecommendationTone, colors: Palette): {
+  tint: string;
+  tintBg: string;
+} {
+  switch (tone) {
+    case 'danger':
+      return { tint: colors.status.danger, tintBg: colors.status.dangerLight };
+    case 'warning':
+      return { tint: colors.status.warning, tintBg: colors.status.warningLight };
+    case 'accent':
+      return { tint: colors.accent, tintBg: colors.accentLight };
+    case 'good':
+      return { tint: colors.status.good, tintBg: colors.status.goodLight };
+  }
+}
 
 /** The "Apply" affordance differs per type. */
 export const RECOMMENDATION_APPLY_LABEL: Record<RecommendationType, string> = {

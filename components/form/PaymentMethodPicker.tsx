@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, TouchableOpacity, Modal, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { AppText, Button, Input } from '@/components/ui';
 import { SelectField } from './SelectField';
 import { PaymentMethod, PaymentMethodType } from '@/types';
@@ -25,6 +26,8 @@ export function PaymentMethodPicker({
   value,
   onChange,
 }: PaymentMethodPickerProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const methods = usePaymentMethodsStore((s) => s.methods);
   const refresh = usePaymentMethodsStore((s) => s.refresh);
 
@@ -202,7 +205,7 @@ export function PaymentMethodPicker({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   container: {
     gap: theme.spacing.xs,
   },

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, Modal, FlatList, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { Option } from '@/types';
 import { AppText } from '@/components/ui';
 
@@ -22,6 +23,8 @@ export function SelectField<T extends string>({
   placeholder = 'Select…',
   error,
 }: SelectFieldProps<T>) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.value === value);
 
@@ -99,7 +102,7 @@ export function SelectField<T extends string>({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   container: {
     gap: theme.spacing.xs,
   },

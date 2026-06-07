@@ -4,7 +4,8 @@ import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { AppText, Button } from '@/components/ui';
 import { formatDate, fromISODate, toISODate } from '@/lib/date';
 
@@ -23,6 +24,8 @@ export function DateField({
   placeholder = 'Select date',
   error,
 }: DateFieldProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [show, setShow] = useState(false);
   const [temp, setTemp] = useState<Date>(value ? fromISODate(value) : new Date());
 
@@ -98,7 +101,7 @@ export function DateField({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   container: {
     gap: theme.spacing.xs,
   },

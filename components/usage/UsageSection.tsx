@@ -3,7 +3,8 @@ import { View, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card } from '@/components/ui';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { Item, UsageLog } from '@/types';
 import {
   usageModelFor,
@@ -61,6 +62,8 @@ function trendLabel(trend: UtilizationTrend): string {
 }
 
 export function UsageSection({ item, onChanged }: UsageSectionProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const model = usageModelFor(item.category);
 
   const [logs, setLogs] = useState<UsageLog[]>([]);
@@ -275,7 +278,7 @@ export function UsageSection({ item, onChanged }: UsageSectionProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   card: {
     gap: theme.spacing.md,
   },

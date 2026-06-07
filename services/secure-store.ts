@@ -16,6 +16,12 @@ export const SecureKeys = {
   appLastUnlockedAt: 'renewly.lock.lastUnlockedAt',
   /** Security setting flags (JSON). */
   securitySettings: 'renewly.security.settings',
+  /** Appearance preference: 'light' | 'dark' | 'system'. */
+  themeMode: 'renewly.theme.mode',
+  /** Onboarding completion flag ('1' once finished). */
+  onboardingComplete: 'renewly.onboarding.complete',
+  /** Profile + notification preferences (JSON). */
+  preferences: 'renewly.preferences',
   /** The full government-ID number behind an item's masked display, keyed by item id. */
   idExtra: (itemId: string): string => `renewly.idExtra.${itemId}`,
 } as const;

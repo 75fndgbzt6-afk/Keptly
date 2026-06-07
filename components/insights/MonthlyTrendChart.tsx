@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, LayoutChangeEvent, StyleSheet } from 'react-native';
 import Svg, { Polyline, Circle } from 'react-native-svg';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 
 interface MonthlyTrendChartProps {
   /** Monthly totals, oldest → newest. */
@@ -11,6 +12,8 @@ interface MonthlyTrendChartProps {
 
 /** A calm single-accent line chart of monthly totals. */
 export function MonthlyTrendChart({ data, height = 96 }: MonthlyTrendChartProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [width, setWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
 
@@ -53,7 +56,7 @@ export function MonthlyTrendChart({ data, height = 96 }: MonthlyTrendChartProps)
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   container: {
     width: '100%',
     justifyContent: 'center',

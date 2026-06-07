@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, ActivityIndicator, StyleSheet, ViewStyle } from 'react-native';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { AppText } from './AppText';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -17,12 +18,14 @@ interface ButtonProps {
   style?: ViewStyle;
 }
 
-const TEXT_COLOR: Record<ButtonVariant, string> = {
-  primary: theme.colors.text.inverse,
-  secondary: theme.colors.accent,
-  ghost: theme.colors.text.primary,
-  danger: theme.colors.text.inverse,
-};
+function textColor(theme: Theme): Record<ButtonVariant, string> {
+  return {
+    primary: theme.colors.text.inverse,
+    secondary: theme.colors.accent,
+    ghost: theme.colors.text.primary,
+    danger: theme.colors.text.inverse,
+  };
+}
 
 export function Button({
   label,
@@ -34,6 +37,8 @@ export function Button({
   fullWidth = false,
   style,
 }: ButtonProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const isDisabled = disabled || loading;
   const spinnerColor =
     variant === 'primary' || variant === 'danger'
@@ -60,7 +65,7 @@ export function Button({
         <AppText
           size={size === 'lg' ? 'md' : 'sm'}
           weight="semibold"
-          color={TEXT_COLOR[variant]}
+          color={textColor(theme)[variant]}
         >
           {label}
         </AppText>
@@ -69,7 +74,7 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   base: {
     flexDirection: 'row',
     alignItems: 'center',

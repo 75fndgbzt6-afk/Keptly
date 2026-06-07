@@ -9,7 +9,8 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView, Edge } from 'react-native-safe-area-context';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 
 interface ScreenProps {
   children: React.ReactNode;
@@ -34,6 +35,7 @@ export function Screen({
   refreshing = false,
   edges = ['top'],
 }: ScreenProps) {
+  const styles = useThemedStyles(makeStyles);
   const inner = (
     <View style={[styles.inner, padded && styles.padded, style]}>
       {children}
@@ -72,7 +74,7 @@ export function Screen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

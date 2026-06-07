@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { AppText, Badge, Card } from '@/components/ui';
 import { Item } from '@/types';
 import { CATEGORY_ICONS } from '@/lib/category';
@@ -20,8 +21,10 @@ interface ItemRowProps {
 }
 
 export function ItemRow({ item, onPress, costPerUse }: ItemRowProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const level = urgencyForDate(item.nextDate);
-  const dateColor = urgencyColor(level);
+  const dateColor = urgencyColor(level, theme.colors);
   const cycleSuffix = BILLING_CYCLE_SHORT[item.billingCycle];
   const cpuLabel =
     costPerUse && costPerUse.value !== null
@@ -73,7 +76,7 @@ export function ItemRow({ item, onPress, costPerUse }: ItemRowProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',

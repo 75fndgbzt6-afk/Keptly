@@ -11,7 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Input, EmptyState } from '@/components/ui';
 import { ItemRow } from '@/components/items';
 import { SelectField } from '@/components/form';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { Category, Item } from '@/types';
 import { CATEGORIES } from '@/lib/category';
 import { SORT_OPTIONS, SortKey } from '@/lib/options';
@@ -52,6 +53,8 @@ function sortItems(items: Item[], key: SortKey): Item[] {
 }
 
 export default function ItemsScreen() {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const params = useLocalSearchParams<{ category?: string }>();
   const items = useItemsStore((s) => s.items);
@@ -216,7 +219,7 @@ export default function ItemsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   header: {
     paddingHorizontal: theme.spacing.base,
     paddingTop: theme.spacing.md,

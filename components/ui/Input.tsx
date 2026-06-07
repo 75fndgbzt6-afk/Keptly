@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { TextInput, View, StyleSheet, TextInputProps, ViewStyle } from 'react-native';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { AppText } from './AppText';
 
 interface InputProps extends Omit<TextInputProps, 'style'> {
@@ -19,6 +20,8 @@ export function Input({
   containerStyle,
   ...textInputProps
 }: InputProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [focused, setFocused] = useState(false);
 
   return (
@@ -64,7 +67,7 @@ export function Input({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   container: {
     gap: theme.spacing.xs,
   },

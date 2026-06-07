@@ -4,7 +4,9 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Button, Input } from '@/components/ui';
 import { ToggleField } from '@/components/form';
-import { theme } from '@/constants/theme';
+import { Theme, ThemeMode } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
+import { useThemeStore } from '@/stores/themeStore';
 import { canAuthenticate } from '@/services/app-lock';
 import { exportData, deleteAllData } from '@/services/data-export';
 import { useSecurityStore, TIMEOUT_OPTIONS, TimeoutMinutes } from '@/stores/securityStore';
@@ -14,9 +16,19 @@ import { usePaymentMethodsStore } from '@/stores/paymentMethodsStore';
 
 const DELETE_WORD = 'DELETE';
 
+const APPEARANCE_OPTIONS: { label: string; value: ThemeMode }[] = [
+  { label: 'Light', value: 'light' },
+  { label: 'Dark', value: 'dark' },
+  { label: 'System', value: 'system' },
+];
+
 export default function SettingsScreen() {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const security = useSecurityStore();
+  const themeMode = useThemeStore((s) => s.mode);
+  const setThemeMode = useThemeStore((s) => s.setMode);
   const refreshItems = useItemsStore((s) => s.refresh);
   const refreshRecs = useRecommendationsStore((s) => s.refresh);
   const refreshMethods = usePaymentMethodsStore((s) => s.refresh);
@@ -122,6 +134,36 @@ export default function SettingsScreen() {
           </Card>
         </Section>
 
+        <Section title="Appearance">
+          <Card style={styles.card}>
+            <AppText weight="medium">Theme</AppText>
+            <View style={styles.segments}>
+              {APPEARANCE_OPTIONS.map((opt) => {
+                const active = themeMode === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    activeOpacity={0.7}
+                    onPress={() => setThemeMode(opt.value)}
+                    style={[styles.segment, active && styles.segmentActive]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={`${opt.label} appearance`}
+                  >
+                    <AppText
+                      size="sm"
+                      weight={active ? 'semibold' : 'regular'}
+                      color={active ? theme.colors.text.inverse : theme.colors.text.secondary}
+                    >
+                      {opt.label}
+                    </AppText>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Card>
+        </Section>
+
         <Section title="Your data">
           <Card style={styles.card}>
             <View style={styles.dataRow}>
@@ -195,6 +237,8 @@ export default function SettingsScreen() {
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.section}>
       <AppText size="sm" weight="semibold" color={theme.colors.text.tertiary}>
@@ -205,7 +249,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   topBar: {
     paddingHorizontal: theme.spacing.sm,
     paddingTop: theme.spacing.xs,

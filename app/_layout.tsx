@@ -15,8 +15,16 @@ import {
 import { initDatabase } from '@/db/schema';
 import { initNotifications, reconcile, addResponseListener } from '@/services/notifications';
 import { useRecommendationsStore } from '@/stores/recommendationsStore';
+import { useThemeStore } from '@/stores/themeStore';
 import { AppLockProvider } from '@/components/security';
+import { ThemeProvider, useTheme } from '@/components/theme';
 import { safeWarn } from '@/lib/safe-log';
+
+/** Status bar text adapts to the active theme (dark text on light, light on dark). */
+function ThemedStatusBar() {
+  const theme = useTheme();
+  return <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />;
+}
 
 SplashScreen.preventAutoHideAsync();
 
@@ -32,6 +40,7 @@ export default function RootLayout() {
   useEffect(() => {
     (async () => {
       try {
+        await useThemeStore.getState().refresh();
         await initDatabase();
         await initNotifications();
         await reconcile();
@@ -62,8 +71,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <AppLockProvider>
+        <ThemeProvider>
+          <ThemedStatusBar />
+          <AppLockProvider>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="item/[id]" />
@@ -83,7 +93,8 @@ export default function RootLayout() {
               options={{ presentation: 'modal' }}
             />
           </Stack>
-        </AppLockProvider>
+          </AppLockProvider>
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

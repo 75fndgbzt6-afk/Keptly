@@ -4,7 +4,8 @@ import { useFocusEffect, useRootNavigationState, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Badge, Button, EmptyState } from '@/components/ui';
 import { ReminderPermissionBanner } from '@/components/notifications/ReminderPermissionBanner';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { Item } from '@/types';
 import { CATEGORY_ICONS } from '@/lib/category';
 import { REMINDER_TYPE_LABELS, ACTION_IDS } from '@/lib/notification-copy';
@@ -26,6 +27,8 @@ import { useRecommendationsStore } from '@/stores/recommendationsStore';
 import { useNotificationsStore } from '@/stores/notificationsStore';
 
 export default function HomeScreen() {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const navReady = !!useRootNavigationState()?.key;
   const items = useItemsStore((s) => s.items);
@@ -247,6 +250,8 @@ export default function HomeScreen() {
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.section}>
       <AppText size="sm" weight="semibold" color={theme.colors.text.tertiary}>
@@ -258,6 +263,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function UpcomingRow({ item, last, onPress }: { item: Item; last: boolean; onPress: () => void }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const level = urgencyForDate(item.nextDate);
   return (
     <TouchableOpacity
@@ -275,7 +282,7 @@ function UpcomingRow({ item, last, onPress }: { item: Item; last: boolean; onPre
         </AppText>
         <View style={styles.upcomingMeta}>
           <Badge label={item.category} variant="neutral" />
-          <AppText size="xs" weight="medium" color={urgencyColor(level)}>
+          <AppText size="xs" weight="medium" color={urgencyColor(level, theme.colors)}>
             {relativeDateLabel(item.nextDate)}
           </AppText>
         </View>
@@ -285,7 +292,7 @@ function UpcomingRow({ item, last, onPress }: { item: Item; last: boolean; onPre
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',

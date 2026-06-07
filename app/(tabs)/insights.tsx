@@ -4,7 +4,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Badge, Button, EmptyState } from '@/components/ui';
 import { SpendByCategoryChart, MonthlyTrendChart, RecommendationCard } from '@/components/insights';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { Category, Item, Recommendation } from '@/types';
 import { CATEGORY_ICONS } from '@/lib/category';
 import { RECOMMENDATION_META } from '@/lib/recommendations';
@@ -23,6 +24,8 @@ interface LeaderEntry {
 }
 
 export default function InsightsScreen() {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const items = useItemsStore((s) => s.items);
   const refreshItems = useItemsStore((s) => s.refresh);
@@ -200,6 +203,8 @@ export default function InsightsScreen() {
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.section}>
       <AppText size="sm" weight="semibold" color={theme.colors.text.tertiary}>
@@ -219,6 +224,8 @@ function LeaderRow({
   last: boolean;
   onPress: () => void;
 }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { item, cpu } = entry;
   const label =
     cpu.value !== null ? `${formatCurrency(cpu.value)}${COST_UNIT_SUFFIX[cpu.unit]}` : '—';
@@ -243,7 +250,7 @@ function LeaderRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   header: {
     paddingHorizontal: theme.spacing.base,
     paddingTop: theme.spacing.md,

@@ -2,7 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button } from '@/components/ui';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 
 interface LockScreenProps {
   /** 'loading' = determining lock state (no prompt); 'locked' = blocked, offer unlock. */
@@ -15,6 +16,8 @@ interface LockScreenProps {
  * auto-prompts for authentication once on mount and offers a manual retry button.
  */
 export function LockScreen({ mode, onUnlock }: LockScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const prompted = useRef(false);
 
   useEffect(() => {
@@ -44,7 +47,7 @@ export function LockScreen({ mode, onUnlock }: LockScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: theme.colors.background,

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { AppText } from './AppText';
 
 type BadgeVariant = 'good' | 'warning' | 'danger' | 'neutral' | 'accent';
@@ -11,16 +12,21 @@ interface BadgeProps {
   style?: ViewStyle;
 }
 
-const VARIANT_COLORS: Record<BadgeVariant, { bg: string; text: string }> = {
-  good: { bg: theme.colors.status.goodLight, text: theme.colors.status.good },
-  warning: { bg: theme.colors.status.warningLight, text: theme.colors.status.warning },
-  danger: { bg: theme.colors.status.dangerLight, text: theme.colors.status.danger },
-  neutral: { bg: theme.colors.surfaceAlt, text: theme.colors.text.secondary },
-  accent: { bg: theme.colors.accentLight, text: theme.colors.accent },
-};
+function variantColors(theme: Theme): Record<BadgeVariant, { bg: string; text: string }> {
+  const c = theme.colors;
+  return {
+    good: { bg: c.status.goodLight, text: c.status.good },
+    warning: { bg: c.status.warningLight, text: c.status.warning },
+    danger: { bg: c.status.dangerLight, text: c.status.danger },
+    neutral: { bg: c.surfaceAlt, text: c.text.secondary },
+    accent: { bg: c.accentLight, text: c.accent },
+  };
+}
 
 export function Badge({ label, variant = 'neutral', style }: BadgeProps) {
-  const { bg, text } = VARIANT_COLORS[variant];
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const { bg, text } = variantColors(theme)[variant];
   return (
     <View style={[styles.badge, { backgroundColor: bg }, style]}>
       <AppText size="xs" weight="medium" color={text}>
@@ -30,7 +36,7 @@ export function Badge({ label, variant = 'neutral', style }: BadgeProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   badge: {
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 3,

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Switch, StyleSheet } from 'react-native';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { AppText } from '@/components/ui';
 
 interface ToggleFieldProps {
@@ -11,6 +12,8 @@ interface ToggleFieldProps {
 }
 
 export function ToggleField({ label, value, onChange, hint }: ToggleFieldProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.row}>
       <View style={styles.textCol}>
@@ -32,7 +35,7 @@ export function ToggleField({ label, value, onChange, hint }: ToggleFieldProps) 
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',

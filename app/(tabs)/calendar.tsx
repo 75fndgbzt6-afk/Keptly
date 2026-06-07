@@ -4,7 +4,8 @@ import { Calendar, DateData } from 'react-native-calendars';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, EmptyState } from '@/components/ui';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { Item } from '@/types';
 import { CATEGORY_ICONS } from '@/lib/category';
 import { formatCurrency } from '@/lib/currency';
@@ -38,6 +39,8 @@ function buildEvents(items: Item[]): Map<string, DayEvent[]> {
 }
 
 export default function CalendarScreen() {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const items = useItemsStore((s) => s.items);
   const refresh = useItemsStore((s) => s.refresh);
@@ -54,7 +57,7 @@ export default function CalendarScreen() {
   const markedDates = useMemo(() => {
     const marks: Record<string, { marked?: boolean; dotColor?: string; selected?: boolean; selectedColor?: string }> = {};
     for (const date of events.keys()) {
-      marks[date] = { marked: true, dotColor: urgencyColor(urgencyForDate(date)) };
+      marks[date] = { marked: true, dotColor: urgencyColor(urgencyForDate(date), theme.colors) };
     }
     marks[selected] = {
       ...(marks[selected] ?? {}),
@@ -62,7 +65,7 @@ export default function CalendarScreen() {
       selectedColor: theme.colors.accent,
     };
     return marks;
-  }, [events, selected]);
+  }, [events, selected, theme]);
 
   const dayEvents = events.get(selected) ?? [];
   const hasItems = items.length > 0;
@@ -138,7 +141,7 @@ export default function CalendarScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   header: {
     paddingHorizontal: theme.spacing.base,
     paddingTop: theme.spacing.md,

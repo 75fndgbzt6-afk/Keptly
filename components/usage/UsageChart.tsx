@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, LayoutChangeEvent, StyleSheet } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 
 interface UsageChartProps {
   /** Daily totals, oldest → newest. One entry per day in the window. */
@@ -11,6 +12,8 @@ interface UsageChartProps {
 
 /** A calm, single-color SVG bar chart: one bar per day, flat baseline on empty days. */
 export function UsageChart({ data, height = 64 }: UsageChartProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [width, setWidth] = useState(0);
 
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
@@ -47,7 +50,7 @@ export function UsageChart({ data, height = 64 }: UsageChartProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   container: {
     width: '100%',
     justifyContent: 'flex-end',

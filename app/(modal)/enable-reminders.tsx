@@ -3,7 +3,8 @@ import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Button } from '@/components/ui';
-import { theme } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/components/theme';
 import { useNotificationsStore } from '@/stores/notificationsStore';
 
 const REASONS: { icon: React.ComponentProps<typeof Ionicons>['name']; text: string }[] = [
@@ -13,6 +14,8 @@ const REASONS: { icon: React.ComponentProps<typeof Ionicons>['name']; text: stri
 ];
 
 export default function EnableRemindersModal() {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const request = useNotificationsStore((s) => s.request);
   const declineForNow = useNotificationsStore((s) => s.declineForNow);
@@ -66,7 +69,7 @@ export default function EnableRemindersModal() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   body: {
     flex: 1,
     justifyContent: 'space-between',
