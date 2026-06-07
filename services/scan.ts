@@ -2,7 +2,8 @@
 // vault file directory. Scans are written to an app-private folder (NOT the shared
 // Photos library) and are reachable only behind the vault/app lock (SPEC §7, §8).
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+// SDK 54 moved the classic file API under /legacy (the new API is object-oriented).
+import * as FileSystem from 'expo-file-system/legacy';
 
 /** App-private, sandboxed directory. Not indexed by Photos; wiped on uninstall. */
 const VAULT_DIR = `${FileSystem.documentDirectory}vault/`;

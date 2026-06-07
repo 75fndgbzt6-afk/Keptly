@@ -3,7 +3,8 @@
 // redacts any sensitive-looking fields, so full IDs/cards can never leak. Delete-all
 // tears down every table, every secret in secure store, and all on-device scans.
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+// SDK 54 moved the classic file API under /legacy (the new API is object-oriented).
+import * as FileSystem from 'expo-file-system/legacy';
 import { listItems } from '@/db/items';
 import { listPaymentMethods } from '@/db/paymentMethods';
 import { getDb } from '@/db/index';
