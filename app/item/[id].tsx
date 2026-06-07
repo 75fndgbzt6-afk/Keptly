@@ -4,23 +4,31 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Badge, Button } from '@/components/ui';
 import { theme } from '@/constants/theme';
-import { Item, ItemDetails, PaymentMethod } from '@/types';
+import { Item, ItemDetails, IntentFlag, PaymentMethod } from '@/types';
 import { CATEGORY_ICONS } from '@/lib/category';
 import {
   BILLING_CYCLE_OPTIONS,
   STATUS_LABELS,
-  INTENT_LABELS,
   PAYMENT_TYPE_LABELS,
 } from '@/lib/options';
+import { hasUsageModel } from '@/lib/usage-models';
 import { formatCurrency } from '@/lib/currency';
 import { formatDate, relativeDateLabel } from '@/lib/date';
 import { urgencyBadgeVariant, urgencyForDate } from '@/lib/urgency';
 import { primaryTrackType, reminderTracksForItem } from '@/lib/reminders';
 import { REMINDER_TYPE_LABELS } from '@/lib/notification-copy';
-import { getItem, deleteItem } from '@/db/items';
+import { getItem, deleteItem, updateItem } from '@/db/items';
 import { scheduleTestNotification } from '@/services/notifications';
+import { getValueVerdict, ValueVerdict } from '@/services/value-engine';
+import { UsageSection } from '@/components/usage';
 import { useItemsStore } from '@/stores/itemsStore';
 import { usePaymentMethodsStore } from '@/stores/paymentMethodsStore';
+
+const INTENT_SEGMENTS: { value: IntentFlag; label: string }[] = [
+  { value: 'more', label: 'Want more' },
+  { value: 'neutral', label: 'Neutral' },
+  { value: 'less', label: 'Want less' },
+];
 
 function billingCycleLabel(item: Item): string {
   return BILLING_CYCLE_OPTIONS.find((o) => o.value === item.billingCycle)?.label ?? item.billingCycle;
@@ -46,14 +54,32 @@ export default function ItemDetailScreen() {
   const refreshMethods = usePaymentMethodsStore((s) => s.refresh);
 
   const [item, setItem] = useState<Item | null>(null);
+  const [verdict, setVerdict] = useState<ValueVerdict | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const refreshVerdict = useCallback(async () => {
+    if (!id) return;
+    setVerdict(await getValueVerdict(id));
+  }, [id]);
 
   const load = useCallback(async () => {
     if (!id) return;
     const found = await getItem(id);
     setItem(found);
+    await refreshVerdict();
     setLoading(false);
-  }, [id]);
+  }, [id, refreshVerdict]);
+
+  const onIntentChange = useCallback(
+    async (flag: IntentFlag) => {
+      if (!item || flag === item.intentFlag) return;
+      const updated = await updateItem(item.id, { intentFlag: flag });
+      if (updated) setItem(updated);
+      await refreshVerdict();
+      await refresh();
+    },
+    [item, refreshVerdict, refresh],
+  );
 
   useEffect(() => {
     refreshMethods();
@@ -152,6 +178,14 @@ export default function ItemDetailScreen() {
             <Badge label={item.category} variant="accent" />
             <Badge label={STATUS_LABELS[item.status]} variant="neutral" />
           </View>
+
+          {verdict && verdict.signal !== 'no_data' && verdict.headline ? (
+            <AppText size="sm" color={theme.colors.text.secondary} align="center" style={styles.verdict}>
+              {verdict.headline}
+            </AppText>
+          ) : null}
+
+          <IntentControl value={item.intentFlag} onChange={onIntentChange} />
         </View>
 
         <Card style={styles.card}>
@@ -172,6 +206,10 @@ export default function ItemDetailScreen() {
           <DetailRow label="Auto-renews" value={item.autoRenew ? 'Yes' : 'No'} last />
         </Card>
 
+        {hasUsageModel(item.category) ? (
+          <UsageSection item={item} onChanged={refreshVerdict} />
+        ) : null}
+
         {item.isFreeTrial ? (
           <Card style={styles.card}>
             <DetailRow label="Free trial" value="Yes" />
@@ -185,10 +223,11 @@ export default function ItemDetailScreen() {
 
         <DetailsCard details={item.details} />
 
-        <Card style={styles.card}>
-          <DetailRow label="Intent" value={INTENT_LABELS[item.intentFlag]} last={!item.notes} />
-          {item.notes ? <DetailRow label="Notes" value={item.notes} last /> : null}
-        </Card>
+        {item.notes ? (
+          <Card style={styles.card}>
+            <DetailRow label="Notes" value={item.notes} last />
+          </Card>
+        ) : null}
 
         <RemindersCard item={item} onEdit={() => router.push({ pathname: '/(modal)/edit-reminders', params: { id: item.id } })} />
 
@@ -206,6 +245,40 @@ export default function ItemDetailScreen() {
         </View>
       </View>
     </Screen>
+  );
+}
+
+function IntentControl({
+  value,
+  onChange,
+}: {
+  value: IntentFlag;
+  onChange: (flag: IntentFlag) => void;
+}) {
+  return (
+    <View style={styles.intentControl}>
+      {INTENT_SEGMENTS.map((seg) => {
+        const active = seg.value === value;
+        return (
+          <TouchableOpacity
+            key={seg.value}
+            activeOpacity={0.7}
+            onPress={() => onChange(seg.value)}
+            style={[styles.intentSegment, active && styles.intentSegmentActive]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+          >
+            <AppText
+              size="sm"
+              weight={active ? 'semibold' : 'regular'}
+              color={active ? theme.colors.text.inverse : theme.colors.text.secondary}
+            >
+              {seg.label}
+            </AppText>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
   );
 }
 
@@ -371,6 +444,29 @@ const styles = StyleSheet.create({
   headingBadges: {
     flexDirection: 'row',
     gap: theme.spacing.sm,
+  },
+  verdict: {
+    marginTop: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+  },
+  intentControl: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: theme.radius.full,
+    padding: theme.spacing.xs,
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.xs,
+  },
+  intentSegment: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.full,
+  },
+  intentSegmentActive: {
+    backgroundColor: theme.colors.accent,
   },
   card: {
     paddingVertical: 0,

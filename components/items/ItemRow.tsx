@@ -6,19 +6,27 @@ import { AppText, Badge, Card } from '@/components/ui';
 import { Item } from '@/types';
 import { CATEGORY_ICONS } from '@/lib/category';
 import { BILLING_CYCLE_SHORT } from '@/lib/options';
+import { COST_UNIT_SUFFIX } from '@/lib/usage-models';
 import { formatCurrency } from '@/lib/currency';
 import { relativeDateLabel } from '@/lib/date';
 import { urgencyColor, urgencyForDate } from '@/lib/urgency';
+import { CostPerUse } from '@/services/value-engine';
 
 interface ItemRowProps {
   item: Item;
   onPress: () => void;
+  /** Optional cost-per-use over the last 30 days; shows a muted metric when present. */
+  costPerUse?: CostPerUse | null;
 }
 
-export function ItemRow({ item, onPress }: ItemRowProps) {
+export function ItemRow({ item, onPress, costPerUse }: ItemRowProps) {
   const level = urgencyForDate(item.nextDate);
   const dateColor = urgencyColor(level);
   const cycleSuffix = BILLING_CYCLE_SHORT[item.billingCycle];
+  const cpuLabel =
+    costPerUse && costPerUse.value !== null
+      ? `${formatCurrency(costPerUse.value)}${COST_UNIT_SUFFIX[costPerUse.unit]}`
+      : null;
 
   return (
     <Card onPress={onPress} style={styles.card}>
@@ -53,6 +61,11 @@ export function ItemRow({ item, onPress }: ItemRowProps) {
         {cycleSuffix ? (
           <AppText size="xs" color={theme.colors.text.tertiary}>
             {cycleSuffix}
+          </AppText>
+        ) : null}
+        {cpuLabel ? (
+          <AppText size="xs" color={theme.colors.text.tertiary}>
+            {cpuLabel}
           </AppText>
         ) : null}
       </View>

@@ -3,7 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { getDb } from './index';
 
 /** Bump this and add a migration step when the schema changes. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 const CREATE_PAYMENT_METHODS = `
   CREATE TABLE IF NOT EXISTS payment_methods (
@@ -99,6 +99,13 @@ const MIGRATIONS: { version: number; up: (db: SQLiteDatabase) => Promise<void> }
     up: async (db) => {
       // Per-item reminder lead-time overrides (JSON array of days). NULL = category defaults.
       await db.execAsync('ALTER TABLE items ADD COLUMN reminderLeadDays TEXT;');
+    },
+  },
+  {
+    version: 3,
+    up: async (db) => {
+      // Display unit for consumption usage logs (e.g. "kWh", "GB"). NULL for digital/check-in.
+      await db.execAsync('ALTER TABLE usage_logs ADD COLUMN unit TEXT;');
     },
   },
 ];

@@ -16,6 +16,7 @@ import { Category, Item } from '@/types';
 import { CATEGORIES } from '@/lib/category';
 import { SORT_OPTIONS, SortKey } from '@/lib/options';
 import { daysUntil } from '@/lib/date';
+import { getCostPerUseMap, CostPerUse } from '@/services/value-engine';
 import { useItemsStore } from '@/stores/itemsStore';
 
 type ChipValue = 'all' | Category;
@@ -54,10 +55,21 @@ export default function ItemsScreen() {
   const [query, setQuery] = useState('');
   const [chip, setChip] = useState<ChipValue>('all');
   const [sort, setSort] = useState<SortKey>('next_date');
+  const [cpuMap, setCpuMap] = useState<Map<string, CostPerUse>>(new Map());
 
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    let active = true;
+    getCostPerUseMap(items).then((map) => {
+      if (active) setCpuMap(map);
+    });
+    return () => {
+      active = false;
+    };
+  }, [items]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -156,6 +168,7 @@ export default function ItemsScreen() {
                 <ItemRow
                   item={item}
                   onPress={() => router.push(`/item/${item.id}`)}
+                  costPerUse={cpuMap.get(item.id) ?? null}
                 />
               )}
               contentContainerStyle={styles.listContent}

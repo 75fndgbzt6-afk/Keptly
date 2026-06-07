@@ -1,6 +1,8 @@
+import 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import {
@@ -54,25 +56,27 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="item/[id]" />
-        <Stack.Screen name="notifications" />
-        <Stack.Screen
-          name="(modal)/add-item"
-          options={{ presentation: 'modal' }}
-        />
-        <Stack.Screen
-          name="(modal)/enable-reminders"
-          options={{ presentation: 'modal' }}
-        />
-        <Stack.Screen
-          name="(modal)/edit-reminders"
-          options={{ presentation: 'modal' }}
-        />
-      </Stack>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="item/[id]" />
+          <Stack.Screen name="notifications" />
+          <Stack.Screen
+            name="(modal)/add-item"
+            options={{ presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="(modal)/enable-reminders"
+            options={{ presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="(modal)/edit-reminders"
+            options={{ presentation: 'modal' }}
+          />
+        </Stack>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

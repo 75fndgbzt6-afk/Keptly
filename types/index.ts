@@ -130,6 +130,8 @@ export interface UsageLog {
   itemId: string;
   date: string;
   value: number;
+  /** Display unit for consumption logs (e.g. "kWh", "GB"). null for digital/check-in. */
+  unit: string | null;
   source: UsageSource;
 }
 
@@ -159,6 +161,8 @@ export type NewItemInput = Omit<
   'id' | 'nextDate' | 'createdAt' | 'updatedAt' | 'reminderLeadDays'
 >;
 export type ItemPatch = Partial<Omit<Item, 'id' | 'createdAt' | 'updatedAt'>>;
+
+export type NewUsageLogInput = Omit<UsageLog, 'id'>;
 
 export type NewPaymentMethodInput = Omit<PaymentMethod, 'id'>;
 export type PaymentMethodPatch = Partial<Omit<PaymentMethod, 'id'>>;
