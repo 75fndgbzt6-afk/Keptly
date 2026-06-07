@@ -36,6 +36,15 @@ export interface CostPerUse {
   sampleSize: number;
 }
 
+/** Usage summary over a window, for items that have a usage model. */
+export interface UsageStat {
+  /** Normalized uses (hours for digital; visit/unit counts otherwise). */
+  uses: number;
+  /** Number of usage_logs rows in the window. 0 = no usage in the window. */
+  logCount: number;
+  level: 'low' | 'mid' | 'high';
+}
+
 export interface UtilizationTrend {
   thisPeriod: number;
   lastPeriod: number;
@@ -146,6 +155,40 @@ export async function getCostPerUseMap(
     const model = usageModelFor(item.category);
     if (!model) continue;
     result.set(item.id, costPerUseFrom(item, model, byItem.get(item.id) ?? []));
+  }
+  return result;
+}
+
+/**
+ * Usage stats (uses, log count, level) for many items in one DB pass.
+ * Only items with a usage model are included; set-and-forget categories are skipped.
+ */
+export async function getUsageStatsMap(
+  items: Item[],
+  windowDays = DEFAULT_WINDOW,
+): Promise<Map<string, UsageStat>> {
+  const now = new Date();
+  const startISO = windowStartISO(windowDays, now);
+  const allLogs = await listAllUsageLogsSince(startISO);
+
+  const byItem = new Map<string, UsageLog[]>();
+  for (const log of allLogs) {
+    const list = byItem.get(log.itemId) ?? [];
+    list.push(log);
+    byItem.set(log.itemId, list);
+  }
+
+  const result = new Map<string, UsageStat>();
+  for (const item of items) {
+    const model = usageModelFor(item.category);
+    if (!model) continue;
+    const logs = byItem.get(item.id) ?? [];
+    const uses = usesFromLogs(model, logs);
+    result.set(item.id, {
+      uses,
+      logCount: logs.length,
+      level: usageLevel(model, uses),
+    });
   }
   return result;
 }

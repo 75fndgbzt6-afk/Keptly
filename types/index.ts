@@ -42,6 +42,12 @@ export type ReminderStatus = 'pending' | 'sent' | 'dismissed';
 
 export type RecommendationStatus = 'active' | 'accepted' | 'dismissed';
 
+export type RecommendationType =
+  | 'trial_ending'
+  | 'cancel'
+  | 'duplicate'
+  | 'cycle_optimization';
+
 // --- Category-specific details (discriminated union by `kind`) ---
 
 export interface NoDetails {
@@ -148,7 +154,7 @@ export interface Reminder {
 export interface Recommendation {
   id: string;
   itemId: string;
-  type: string;
+  type: RecommendationType;
   reason: string;
   estimatedSavings: number | null;
   status: RecommendationStatus;
@@ -166,6 +172,10 @@ export type NewUsageLogInput = Omit<UsageLog, 'id'>;
 
 export type NewPaymentMethodInput = Omit<PaymentMethod, 'id'>;
 export type PaymentMethodPatch = Partial<Omit<PaymentMethod, 'id'>>;
+
+export type NewRecommendationInput = Omit<Recommendation, 'id'>;
+/** A proposed recommendation from a rule, before persistence assigns id/status. */
+export type ProposedRecommendation = Omit<Recommendation, 'id' | 'status'>;
 
 // --- Generic option type for selects ---
 

@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Input, EmptyState } from '@/components/ui';
 import { ItemRow } from '@/components/items';
@@ -21,6 +21,10 @@ import { useItemsStore } from '@/stores/itemsStore';
 
 type ChipValue = 'all' | Category;
 const CHIPS: ChipValue[] = ['all', ...CATEGORIES];
+
+function isCategory(value: string | undefined): value is Category {
+  return value !== undefined && (CATEGORIES as string[]).includes(value);
+}
 
 function sortItems(items: Item[], key: SortKey): Item[] {
   const sorted = [...items];
@@ -49,6 +53,7 @@ function sortItems(items: Item[], key: SortKey): Item[] {
 
 export default function ItemsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ category?: string }>();
   const items = useItemsStore((s) => s.items);
   const refresh = useItemsStore((s) => s.refresh);
 
@@ -60,6 +65,11 @@ export default function ItemsScreen() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Drill-down from the Insights spend-by-category chart preselects a category filter.
+  useEffect(() => {
+    if (isCategory(params.category)) setChip(params.category);
+  }, [params.category]);
 
   useEffect(() => {
     let active = true;

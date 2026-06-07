@@ -14,6 +14,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { initDatabase } from '@/db/schema';
 import { initNotifications, reconcile, addResponseListener } from '@/services/notifications';
+import { useRecommendationsStore } from '@/stores/recommendationsStore';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -32,6 +33,7 @@ export default function RootLayout() {
         await initDatabase();
         await initNotifications();
         await reconcile();
+        await useRecommendationsStore.getState().refresh();
       } catch (e) {
         console.error('Startup init failed', e);
       } finally {
