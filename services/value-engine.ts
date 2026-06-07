@@ -11,7 +11,7 @@ import {
   USAGE_NOUN_PLURAL,
 } from '@/lib/usage-models';
 import { formatCurrency } from '@/lib/currency';
-import { addDays, toISODate } from '@/lib/date';
+import { addDays, toISODate, fromISODate } from '@/lib/date';
 import { getItem } from '@/db/items';
 import { listUsageLogsByItem, listAllUsageLogsSince } from '@/db/usage';
 
@@ -118,6 +118,57 @@ function costPerUseFrom(item: Item, model: UsageModel, windowLogs: UsageLog[]): 
 }
 
 // --- Public API ---
+
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * Daily usage-log counts over the last `days` days (oldest → newest), for the
+ * 12-week heatmap. Empty for items without a usage model.
+ */
+export async function getDailyUsageCounts(itemId: string, days = 84): Promise<number[]> {
+  const item = await getItem(itemId);
+  const model = item ? usageModelFor(item.category) : null;
+  if (!item || !model) return [];
+
+  const startISO = windowStartISO(days, new Date());
+  const startMs = fromISODate(startISO).getTime();
+  const counts = new Array<number>(days).fill(0);
+  const logs = (await listUsageLogsByItem(itemId)).filter((l) => l.date >= startISO);
+  for (const log of logs) {
+    const idx = Math.round((fromISODate(log.date).getTime() - startMs) / MS_PER_DAY);
+    if (idx >= 0 && idx < days) counts[idx] += 1;
+  }
+  return counts;
+}
+
+/**
+ * Trailing-30-day cost-per-use sampled weekly over the last `weeks` weeks
+ * (oldest → newest), for the cost-per-use sparkline. Skips weeks with no usage.
+ */
+export async function getCostPerUseTrend(
+  itemId: string,
+  weeks = 8,
+  windowDays = DEFAULT_WINDOW,
+): Promise<number[]> {
+  const item = await getItem(itemId);
+  const model = item ? usageModelFor(item.category) : null;
+  if (!item || !model) return [];
+  const mc = monthlyCost(item);
+  if (mc === null) return [];
+
+  const logs = await listUsageLogsByItem(itemId);
+  const today = new Date();
+  const out: number[] = [];
+  for (let w = weeks - 1; w >= 0; w -= 1) {
+    const end = addDays(today, -w * 7);
+    const startISO = windowStartISO(windowDays, end);
+    const endISO = toISODate(end);
+    const windowLogs = logs.filter((l) => l.date >= startISO && l.date <= endISO);
+    const uses = usesFromLogs(model, windowLogs);
+    if (uses > 0) out.push(mc / uses);
+  }
+  return out;
+}
 
 /** Cost-per-use over the window. value is null when the sample is too small. */
 export async function getCostPerUse(

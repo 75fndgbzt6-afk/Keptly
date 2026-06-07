@@ -3,7 +3,7 @@ import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Button, Input } from '@/components/ui';
-import { SelectField, DateField, ToggleField, PaymentMethodPicker } from '@/components/form';
+import { SelectField, DateField, ToggleField, PaymentMethodPicker, CategoryPicker } from '@/components/form';
 import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
 import {
@@ -18,27 +18,33 @@ import {
   UtilityDetails,
   WarrantyDetails,
 } from '@/types';
-import { CATEGORIES, emptyDetailsFor } from '@/lib/category';
+import { emptyDetailsFor, detailKindForCategory, isBuiltInCategory } from '@/lib/category';
 import {
   BILLING_CYCLE_OPTIONS,
   INTENT_OPTIONS,
   STATUS_OPTIONS,
   DOC_TYPES,
+  OTHER_DOC_TYPE,
 } from '@/lib/options';
 import { documentMask } from '@/lib/masking';
 import { todayISO } from '@/lib/date';
 import { createItem, getItem, updateItem } from '@/db/items';
 import { getFullId, setFullId, clearFullId } from '@/services/vault';
 import { useItemsStore } from '@/stores/itemsStore';
+import { useCategoriesStore } from '@/stores/categoriesStore';
 import { usePreferencesStore } from '@/stores/preferencesStore';
 import { CURRENCY_SYMBOLS } from '@/constants/config';
 
-const CATEGORY_OPTIONS: Option<Category>[] = CATEGORIES.map((c) => ({ label: c, value: c }));
 const DOC_TYPE_OPTIONS: Option<string>[] = DOC_TYPES.map((d) => ({ label: d, value: d }));
+
+/** Empty details for any category string (custom categories carry no details). */
+function detailsForCategory(category: string): ItemDetails {
+  return isBuiltInCategory(category) ? emptyDetailsFor(category) : { kind: 'none' };
+}
 
 interface FormState {
   name: string;
-  category: Category;
+  category: string; // built-in Category or a custom category name
   holderName: string;
   paymentMethodId: string | null;
   amount: string;
@@ -57,8 +63,8 @@ interface FormState {
   attachmentUri: string | null;
 }
 
-function initialForm(): FormState {
-  const category: Category = 'Streaming/OTT';
+function initialForm(initialCategory?: string): FormState {
+  const category: string = initialCategory ?? 'Streaming/OTT';
   return {
     name: '',
     category,
@@ -73,7 +79,7 @@ function initialForm(): FormState {
     status: 'active',
     intentFlag: 'neutral',
     notes: '',
-    details: emptyDetailsFor(category),
+    details: detailsForCategory(category),
     fullId: '',
     attachmentUri: null,
   };
@@ -84,16 +90,23 @@ type Errors = Partial<Record<'name' | 'amount' | 'trialEndDate', string>>;
 export default function AddEditItemModal() {
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, category: initialCategory } = useLocalSearchParams<{ id?: string; category?: string }>();
   const isEdit = !!id;
   const refresh = useItemsStore((s) => s.refresh);
+  const customCategories = useCategoriesStore((s) => s.custom);
+  const refreshCategories = useCategoriesStore((s) => s.refresh);
+  const addCustomCategory = useCategoriesStore((s) => s.add);
   const defaultCurrency = usePreferencesStore((s) => s.defaultCurrency);
   const currencySymbol = CURRENCY_SYMBOLS[defaultCurrency] ?? defaultCurrency;
 
-  const [form, setForm] = useState<FormState>(initialForm);
+  const [form, setForm] = useState<FormState>(() => initialForm(initialCategory));
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(isEdit);
+
+  useEffect(() => {
+    refreshCategories();
+  }, [refreshCategories]);
 
   useEffect(() => {
     if (!id) return;
@@ -135,8 +148,17 @@ export default function AddEditItemModal() {
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const onCategoryChange = (category: Category) =>
-    setForm((prev) => ({ ...prev, category, details: emptyDetailsFor(category) }));
+  const onCategoryChange = (category: string) =>
+    setForm((prev) => ({
+      ...prev,
+      category,
+      // Keep details when only the custom name is being typed (stays kind 'none').
+      details:
+        detailKindForCategory(isBuiltInCategory(category) ? category : 'Other') ===
+        prev.details.kind
+          ? prev.details
+          : detailsForCategory(category),
+    }));
 
   // Type-safe detail setters (only used when details.kind matches).
   const setWarranty = (patch: Partial<Omit<WarrantyDetails, 'kind'>>) =>
@@ -168,6 +190,10 @@ export default function AddEditItemModal() {
 
     const amountValue = form.amount.trim() === '' ? null : Number(form.amount);
 
+    // Persist a user-created custom category so it reappears in the picker.
+    const category = form.category.trim() || 'Other';
+    if (!isBuiltInCategory(category)) await addCustomCategory(category);
+
     // For documents, persist only the MASKED id in the table; the full value goes
     // to secure store after we know the item's id (SPEC §8).
     const trimmedFullId = form.fullId.trim();
@@ -181,7 +207,7 @@ export default function AddEditItemModal() {
 
     const payload = {
       name: form.name.trim(),
-      category: form.category,
+      category: category as Category,
       holderName: form.holderName.trim() || null,
       paymentMethodId: form.paymentMethodId,
       amount: amountValue,
@@ -237,11 +263,11 @@ export default function AddEditItemModal() {
             onChangeText={(t) => update('name', t)}
             error={errors.name}
           />
-          <SelectField<Category>
+          <CategoryPicker
             label="Category"
             value={form.category}
-            options={CATEGORY_OPTIONS}
             onChange={onCategoryChange}
+            customCategories={customCategories}
           />
           <Input
             label="Account holder (optional)"
@@ -407,15 +433,32 @@ function DocumentFields({
   onFullIdChange: (value: string) => void;
 }) {
   const preview = fullId.trim() ? documentMask(details.docType, fullId.trim()) : null;
+  const isOther =
+    details.docType === OTHER_DOC_TYPE ||
+    (!!details.docType && !DOC_TYPES.includes(details.docType));
+  const selectValue = isOther
+    ? OTHER_DOC_TYPE
+    : details.docType && DOC_TYPES.includes(details.docType)
+      ? details.docType
+      : null;
   return (
     <>
       <SelectField<string>
         label="Document type"
-        value={details.docType ?? null}
+        value={selectValue}
         options={DOC_TYPE_OPTIONS}
         onChange={(v) => onChange({ docType: v })}
         placeholder="Select type"
       />
+      {isOther ? (
+        <Input
+          label="Custom document type"
+          placeholder="e.g. Library card"
+          value={details.docType === OTHER_DOC_TYPE ? '' : details.docType ?? ''}
+          onChangeText={(t) => onChange({ docType: t.trim() === '' ? OTHER_DOC_TYPE : t })}
+          autoCapitalize="words"
+        />
+      ) : null}
       <Input
         label="Issuing authority"
         placeholder="e.g. RTO, Passport Seva"

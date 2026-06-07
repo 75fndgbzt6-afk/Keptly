@@ -14,6 +14,8 @@ export interface Preferences {
   quietStartHour: number; // 0–23; default 22 (10pm)
   quietEndHour: number; // 0–23; default 7 (7am)
   defaultLeadDays: number[]; // e.g. [30, 14, 7, 1]
+  /** Soft monthly budget for the Items-tab spend ring. 0 = auto-derive. */
+  monthlyBudget: number;
 }
 
 const DEFAULTS: Preferences = {
@@ -23,6 +25,7 @@ const DEFAULTS: Preferences = {
   quietStartHour: 22,
   quietEndHour: 7,
   defaultLeadDays: [30, 14, 7, 1],
+  monthlyBudget: 0,
 };
 
 function parse(raw: string | null): Preferences {
@@ -41,6 +44,7 @@ function parse(raw: string | null): Preferences {
       defaultLeadDays: Array.isArray(v.defaultLeadDays)
         ? v.defaultLeadDays.filter((n): n is number => typeof n === 'number')
         : DEFAULTS.defaultLeadDays,
+      monthlyBudget: typeof v.monthlyBudget === 'number' ? v.monthlyBudget : DEFAULTS.monthlyBudget,
     };
   } catch {
     return DEFAULTS;
@@ -67,6 +71,7 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
       quietStartHour: get().quietStartHour,
       quietEndHour: get().quietEndHour,
       defaultLeadDays: get().defaultLeadDays,
+      monthlyBudget: get().monthlyBudget,
       ...patch,
     };
     set(next);

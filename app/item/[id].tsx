@@ -7,7 +7,7 @@ import { RevealableValue } from '@/components/security';
 import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
 import { Item, ItemDetails, IntentFlag, PaymentMethod } from '@/types';
-import { CATEGORY_ICONS } from '@/lib/category';
+import { iconForCategory } from '@/lib/category';
 import {
   BILLING_CYCLE_OPTIONS,
   STATUS_LABELS,
@@ -26,7 +26,7 @@ import { scheduleTestNotification } from '@/services/notifications';
 import { getValueVerdict, ValueVerdict } from '@/services/value-engine';
 import { getFullId, purgeItemSecrets } from '@/services/vault';
 import { captureScan, deleteScan, ScanSource } from '@/services/scan';
-import { UsageSection } from '@/components/usage';
+import { UsageSection, UsageHistoryCard } from '@/components/usage';
 import { useItemsStore } from '@/stores/itemsStore';
 import { usePaymentMethodsStore } from '@/stores/paymentMethodsStore';
 
@@ -217,7 +217,7 @@ export default function ItemDetailScreen() {
         <View style={styles.heading}>
           <View style={styles.iconCircle}>
             <Ionicons
-              name={CATEGORY_ICONS[item.category]}
+              name={iconForCategory(item.category)}
               size={26}
               color={theme.colors.accent}
             />
@@ -260,6 +260,8 @@ export default function ItemDetailScreen() {
         {hasUsageModel(item.category) ? (
           <UsageSection item={item} onChanged={refreshVerdict} />
         ) : null}
+
+        {hasUsageModel(item.category) ? <UsageHistoryCard item={item} /> : null}
 
         {item.isFreeTrial ? (
           <Card style={styles.card}>

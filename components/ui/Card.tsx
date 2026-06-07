@@ -9,6 +9,7 @@ interface CardProps {
   padded?: boolean;
   elevated?: boolean;
   onPress?: () => void;
+  onLongPress?: () => void;
   accessibilityLabel?: string;
 }
 
@@ -18,16 +19,19 @@ export function Card({
   padded = true,
   elevated = false,
   onPress,
+  onLongPress,
   accessibilityLabel,
 }: CardProps) {
   const styles = useThemedStyles(makeStyles);
   const cardStyle = [styles.card, padded && styles.padded, elevated && styles.elevated, style];
 
-  if (onPress) {
+  if (onPress || onLongPress) {
     return (
       <TouchableOpacity
         activeOpacity={0.75}
         onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={350}
         style={cardStyle}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}

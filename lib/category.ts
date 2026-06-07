@@ -5,6 +5,9 @@ import { Category, DetailKind, ItemDetails } from '@/types';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
+/** Default icon for user-created custom categories. */
+export const CUSTOM_CATEGORY_ICON: IoniconName = 'pricetag-outline';
+
 export const CATEGORIES: Category[] = [
   'Streaming/OTT',
   'Music',
@@ -34,6 +37,16 @@ export const CATEGORY_ICONS: Record<Category, IoniconName> = {
   Membership: 'card-outline',
   Other: 'ellipsis-horizontal-outline',
 };
+
+/** Whether a category string is one of the built-ins (vs a user-created custom). */
+export function isBuiltInCategory(category: string): category is Category {
+  return (CATEGORIES as string[]).includes(category);
+}
+
+/** Safe icon lookup that tolerates custom category strings. */
+export function iconForCategory(category: string): IoniconName {
+  return isBuiltInCategory(category) ? CATEGORY_ICONS[category] : CUSTOM_CATEGORY_ICON;
+}
 
 /** Which category-specific detail shape (if any) a category uses. */
 export function detailKindForCategory(category: Category): DetailKind {

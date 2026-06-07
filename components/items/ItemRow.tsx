@@ -4,8 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
 import { AppText, Badge, Card } from '@/components/ui';
+import { ActivityRings } from '@/components/charts';
 import { Item } from '@/types';
-import { CATEGORY_ICONS } from '@/lib/category';
+import { iconForCategory } from '@/lib/category';
 import { BILLING_CYCLE_SHORT } from '@/lib/options';
 import { COST_UNIT_SUFFIX } from '@/lib/usage-models';
 import { formatCurrency } from '@/lib/currency';
@@ -16,11 +17,14 @@ import { CostPerUse } from '@/services/value-engine';
 interface ItemRowProps {
   item: Item;
   onPress: () => void;
+  onLongPress?: () => void;
   /** Optional cost-per-use over the last 30 days; shows a muted metric when present. */
   costPerUse?: CostPerUse | null;
+  /** Optional 0..1 utilization for tracked items; draws a tiny ring around the icon. */
+  utilization?: number | null;
 }
 
-export function ItemRow({ item, onPress, costPerUse }: ItemRowProps) {
+export function ItemRow({ item, onPress, onLongPress, costPerUse, utilization }: ItemRowProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const level = urgencyForDate(item.nextDate);
@@ -30,16 +34,19 @@ export function ItemRow({ item, onPress, costPerUse }: ItemRowProps) {
     costPerUse && costPerUse.value !== null
       ? `${formatCurrency(costPerUse.value)}${COST_UNIT_SUFFIX[costPerUse.unit]}`
       : null;
+  const icon = (
+    <Ionicons name={iconForCategory(item.category)} size={20} color={theme.colors.accent} />
+  );
 
   return (
-    <Card onPress={onPress} style={styles.card}>
-      <View style={styles.iconCircle}>
-        <Ionicons
-          name={CATEGORY_ICONS[item.category]}
-          size={20}
-          color={theme.colors.accent}
-        />
-      </View>
+    <Card onPress={onPress} onLongPress={onLongPress} style={styles.card}>
+      {utilization != null ? (
+        <ActivityRings size={40} thickness={4} rings={[{ fraction: utilization, color: theme.colors.accent }]}>
+          {icon}
+        </ActivityRings>
+      ) : (
+        <View style={styles.iconCircle}>{icon}</View>
+      )}
 
       <View style={styles.middle}>
         <AppText weight="semibold" numberOfLines={1}>

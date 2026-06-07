@@ -4,10 +4,12 @@ import { useFocusEffect, useRootNavigationState, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Badge, Button, EmptyState } from '@/components/ui';
 import { ReminderPermissionBanner } from '@/components/notifications/ReminderPermissionBanner';
+import { Donut } from '@/components/charts';
 import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
+import { chartColorAt } from '@/constants/chart-palette';
 import { Item } from '@/types';
-import { CATEGORY_ICONS } from '@/lib/category';
+import { iconForCategory } from '@/lib/category';
 import { REMINDER_TYPE_LABELS, ACTION_IDS } from '@/lib/notification-copy';
 import { formatCurrency } from '@/lib/currency';
 import { relativeDateLabel } from '@/lib/date';
@@ -19,6 +21,7 @@ import {
   getTopCategory,
   getUpcomingRenewals,
   getActiveAlerts,
+  getSpendByCategory,
   ActiveAlert,
 } from '@/services/dashboard';
 import { handleAction } from '@/services/notifications';
@@ -71,6 +74,12 @@ export default function HomeScreen() {
   const activeCount = useMemo(() => getActiveItemCount(items), [items]);
   const topCategory = useMemo(() => getTopCategory(items), [items]);
   const upcoming = useMemo(() => getUpcomingRenewals(items), [items]);
+  const spendByCategory = useMemo(() => getSpendByCategory(items), [items]);
+  const donutSlices = useMemo(
+    () => spendByCategory.map((c, i) => ({ value: c.monthlyAmount, color: chartColorAt(i) })),
+    [spendByCategory],
+  );
+  const topShare = monthly > 0 && topCategory ? Math.round((topCategory.monthlyAmount / monthly) * 100) : 0;
 
   const remindersOff = asked && permission !== 'granted';
   const hasItems = items.length > 0;
@@ -121,15 +130,34 @@ export default function HomeScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Card style={styles.spendCard} elevated>
-            <AppText size="sm" color={theme.colors.text.secondary}>
-              Monthly spend
-            </AppText>
-            <AppText size="xxl" weight="bold">
-              {formatCurrency(monthly)}
-            </AppText>
-            <AppText size="sm" color={theme.colors.text.tertiary}>
-              {formatCurrency(yearly)} per year
-            </AppText>
+            <View style={styles.flex1}>
+              <AppText size="sm" color={theme.colors.text.secondary}>
+                Monthly spend
+              </AppText>
+              <AppText size="xxl" weight="bold">
+                {formatCurrency(monthly)}
+              </AppText>
+              <AppText size="sm" color={theme.colors.text.tertiary}>
+                {formatCurrency(yearly)} per year
+              </AppText>
+            </View>
+            {donutSlices.length > 0 ? (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => router.push('/(tabs)/insights')}
+                accessibilityRole="button"
+                accessibilityLabel="Spend by category"
+              >
+                <Donut data={donutSlices} size={90} thickness={13}>
+                  <AppText size="md" weight="bold">
+                    {topShare}%
+                  </AppText>
+                  <AppText size="xs" color={theme.colors.text.tertiary}>
+                    top
+                  </AppText>
+                </Donut>
+              </TouchableOpacity>
+            ) : null}
           </Card>
 
           {potentialSavings > 0 ? (
@@ -274,7 +302,7 @@ function UpcomingRow({ item, last, onPress }: { item: Item; last: boolean; onPre
       accessibilityRole="button"
     >
       <View style={styles.iconCircle}>
-        <Ionicons name={CATEGORY_ICONS[item.category]} size={18} color={theme.colors.accent} />
+        <Ionicons name={iconForCategory(item.category)} size={18} color={theme.colors.accent} />
       </View>
       <View style={styles.upcomingMiddle}>
         <AppText weight="medium" numberOfLines={1}>
@@ -316,7 +344,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: theme.spacing.lg,
   },
   spendCard: {
-    gap: theme.spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.base,
   },
   savingsCard: {
     flexDirection: 'row',

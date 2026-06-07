@@ -53,13 +53,21 @@ export function maskFirst2Last2(raw: string): string {
   return maskMiddle(normalize(raw), 2, 2);
 }
 
+/** Card-like IDs (e.g. health insurance) → only the last 4 shown: "XXXX 1234". */
+export function maskLast4(raw: string): string {
+  const v = normalize(raw);
+  if (v.length <= 4) return v;
+  return `${MASK.repeat(4)} ${v.slice(-4)}`;
+}
+
 /** Dispatch to the right masking style for a document type (free text tolerated). */
 export function documentMask(docType: string | undefined, raw: string): string {
   const t = (docType ?? '').toLowerCase();
   if (t.includes('aadhaar') || t.includes('aadhar')) return maskAadhaar(raw);
   if (t.includes('pan')) return maskPan(raw);
   if (t.includes('passport')) return maskPassport(raw);
-  // Driving License, Voter ID, Vehicle RC, Other, and anything else.
+  if (t.includes('health') || t.includes('insurance')) return maskLast4(raw);
+  // Driving License, Voter ID, Vehicle RC, National ID, certificates, Other, etc.
   return maskFirst2Last2(raw);
 }
 

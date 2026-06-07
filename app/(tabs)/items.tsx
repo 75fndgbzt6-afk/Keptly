@@ -9,22 +9,30 @@ import {
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Input, EmptyState, SkeletonList } from '@/components/ui';
-import { ItemRow } from '@/components/items';
+import { ItemRow, SummaryRings, useItemContextMenu, RingDatum } from '@/components/items';
 import { SelectField } from '@/components/form';
 import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
-import { Category, Item } from '@/types';
+import { Item } from '@/types';
 import { CATEGORIES } from '@/lib/category';
 import { SORT_OPTIONS, SortKey } from '@/lib/options';
 import { daysUntil } from '@/lib/date';
-import { getCostPerUseMap, CostPerUse } from '@/services/value-engine';
+import { formatCurrency } from '@/lib/currency';
+import { getCostPerUseMap, CostPerUse, getUsageStatsMap, UsageStat } from '@/services/value-engine';
+import { getMonthlyTotal, getUpcomingRenewals, getActiveAlerts } from '@/services/dashboard';
 import { useItemsStore } from '@/stores/itemsStore';
+import { useCategoriesStore } from '@/stores/categoriesStore';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 
-type ChipValue = 'all' | Category;
-const CHIPS: ChipValue[] = ['all', ...CATEGORIES];
+type ChipValue = string; // 'all' | category name
 
-function isCategory(value: string | undefined): value is Category {
-  return value !== undefined && (CATEGORIES as string[]).includes(value);
+const LEVEL_FRACTION: Record<UsageStat['level'], number> = { low: 0.34, mid: 0.67, high: 1 };
+
+/** Round a number up to a soft, friendly budget ceiling. */
+function softBudget(monthly: number): number {
+  if (monthly <= 0) return 1;
+  const step = monthly < 5000 ? 1000 : 5000;
+  return Math.ceil((monthly * 1.1) / step) * step;
 }
 
 function sortItems(items: Item[], key: SortKey): Item[] {
@@ -60,26 +68,41 @@ export default function ItemsScreen() {
   const items = useItemsStore((s) => s.items);
   const loaded = useItemsStore((s) => s.loaded);
   const refresh = useItemsStore((s) => s.refresh);
+  const customCategories = useCategoriesStore((s) => s.custom);
+  const refreshCategories = useCategoriesStore((s) => s.refresh);
+  const monthlyBudget = usePreferencesStore((s) => s.monthlyBudget);
+  const onLongPress = useItemContextMenu();
 
   const [query, setQuery] = useState('');
   const [chip, setChip] = useState<ChipValue>('all');
   const [sort, setSort] = useState<SortKey>('next_date');
   const [cpuMap, setCpuMap] = useState<Map<string, CostPerUse>>(new Map());
+  const [statsMap, setStatsMap] = useState<Map<string, UsageStat>>(new Map());
+  const [overdueCount, setOverdueCount] = useState(0);
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+    refreshCategories();
+  }, [refresh, refreshCategories]);
 
   // Drill-down from the Insights spend-by-category chart preselects a category filter.
   useEffect(() => {
-    if (isCategory(params.category)) setChip(params.category);
+    if (params.category) setChip(params.category);
   }, [params.category]);
 
   useEffect(() => {
     let active = true;
-    getCostPerUseMap(items).then((map) => {
-      if (active) setCpuMap(map);
-    });
+    (async () => {
+      const [cpu, stats, alerts] = await Promise.all([
+        getCostPerUseMap(items),
+        getUsageStatsMap(items),
+        getActiveAlerts(items, 99),
+      ]);
+      if (!active) return;
+      setCpuMap(cpu);
+      setStatsMap(stats);
+      setOverdueCount(alerts.length);
+    })();
     return () => {
       active = false;
     };
@@ -90,6 +113,30 @@ export default function ItemsScreen() {
       refresh();
     }, [refresh]),
   );
+
+  const chips = useMemo<ChipValue[]>(
+    () => ['all', ...CATEGORIES, ...customCategories],
+    [customCategories],
+  );
+
+  const rings = useMemo<RingDatum[]>(() => {
+    const tracked = [...statsMap.values()];
+    const usedCount = tracked.filter((s) => s.logCount > 0).length;
+    const usedFraction = tracked.length > 0 ? usedCount / tracked.length : 0;
+
+    const monthly = getMonthlyTotal(items);
+    const budget = monthlyBudget && monthlyBudget > 0 ? monthlyBudget : softBudget(monthly);
+    const spendFraction = budget > 0 ? Math.min(1, monthly / budget) : 0;
+
+    const upcoming = getUpcomingRenewals(items, 99).length;
+    const handledFraction = upcoming === 0 ? 1 : Math.max(0, (upcoming - overdueCount) / upcoming);
+
+    return [
+      { fraction: usedFraction, color: theme.colors.accent, label: 'Used this month', caption: `${usedCount} of ${tracked.length} tracked` },
+      { fraction: spendFraction, color: theme.colors.status.good, label: 'Spend vs budget', caption: `${formatCurrency(monthly)} of ${formatCurrency(budget)}` },
+      { fraction: handledFraction, color: theme.colors.status.warning, label: 'Renewals handled', caption: overdueCount > 0 ? `${overdueCount} need attention` : 'All on track' },
+    ];
+  }, [statsMap, items, monthlyBudget, overdueCount, theme]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -136,7 +183,7 @@ export default function ItemsScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.chipRow}
             >
-              {CHIPS.map((c) => {
+              {chips.map((c) => {
                 const active = c === chip;
                 const label = c === 'all' ? 'All' : c;
                 return (
@@ -195,13 +242,19 @@ export default function ItemsScreen() {
             <FlatList
               data={visible}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <ItemRow
-                  item={item}
-                  onPress={() => router.push(`/item/${item.id}`)}
-                  costPerUse={cpuMap.get(item.id) ?? null}
-                />
-              )}
+              ListHeaderComponent={<SummaryRings rings={rings} />}
+              renderItem={({ item }) => {
+                const stat = statsMap.get(item.id);
+                return (
+                  <ItemRow
+                    item={item}
+                    onPress={() => router.push(`/item/${item.id}`)}
+                    onLongPress={() => onLongPress(item)}
+                    costPerUse={cpuMap.get(item.id) ?? null}
+                    utilization={stat ? LEVEL_FRACTION[stat.level] : null}
+                  />
+                );
+              }}
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
             />

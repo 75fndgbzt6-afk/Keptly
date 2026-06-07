@@ -6,13 +6,15 @@ import { Screen, AppText, Card, Badge, Button, EmptyState } from '@/components/u
 import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
 import { Item } from '@/types';
-import { CATEGORY_ICONS } from '@/lib/category';
+import { iconForCategory } from '@/lib/category';
+import { iconForDocType } from '@/lib/documents';
 import { documentDisplayId } from '@/lib/masking';
 import { PERMISSION_COPY } from '@/lib/permission-copy';
 import { relativeDateLabel } from '@/lib/date';
 import { urgencyBadgeVariant, urgencyForDate } from '@/lib/urgency';
 import { requireUnlock } from '@/services/app-lock';
 import { vaultItems } from '@/services/vault';
+import { useItemContextMenu } from '@/components/items';
 import { useItemsStore } from '@/stores/itemsStore';
 import { useSecurityStore } from '@/stores/securityStore';
 
@@ -30,6 +32,9 @@ export default function VaultScreen() {
   const items = useItemsStore((s) => s.items);
   const refresh = useItemsStore((s) => s.refresh);
   const vaultLockEnabled = useSecurityStore((s) => s.vaultLockEnabled);
+  const onLongPress = useItemContextMenu();
+  const addDocument = () =>
+    router.push({ pathname: '/(modal)/add-item', params: { category: 'Government document' } });
 
   const [unlocked, setUnlocked] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -84,7 +89,18 @@ export default function VaultScreen() {
   return (
     <Screen padded={false}>
       <View style={styles.header}>
-        <Button label="Back" variant="ghost" onPress={() => router.back()} style={styles.backButton} />
+        <View style={styles.headerRow}>
+          <Button label="Back" variant="ghost" onPress={() => router.back()} style={styles.backButton} />
+          <TouchableOpacity
+            onPress={addDocument}
+            style={styles.addBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Add document"
+            hitSlop={8}
+          >
+            <Ionicons name="add" size={24} color={theme.colors.accent} />
+          </TouchableOpacity>
+        </View>
         <AppText size="xl" weight="bold" style={styles.title} accessibilityRole="header">
           Vault
         </AppText>
@@ -95,13 +111,18 @@ export default function VaultScreen() {
           icon="shield-checkmark-outline"
           title="Your vault is empty"
           message="Government documents — and insurance policies with a scan — appear here, locked behind your biometric."
+          action={{ label: 'Add a document', onPress: addDocument }}
         />
       ) : (
         <FlatList
           data={vault}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <VaultRow item={item} onPress={() => router.push(`/item/${item.id}`)} />
+            <VaultRow
+              item={item}
+              onPress={() => router.push(`/item/${item.id}`)}
+              onLongPress={() => onLongPress(item)}
+            />
           )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -111,20 +132,32 @@ export default function VaultScreen() {
   );
 }
 
-function VaultRow({ item, onPress }: { item: Item; onPress: () => void }) {
+function VaultRow({
+  item,
+  onPress,
+  onLongPress,
+}: {
+  item: Item;
+  onPress: () => void;
+  onLongPress: () => void;
+}) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const masked = documentDisplayId(item);
   const expiry = expiryFor(item);
   const level = urgencyForDate(expiry);
+  const icon =
+    item.details.kind === 'document'
+      ? iconForDocType(item.details.docType)
+      : iconForCategory(item.category);
 
   return (
-    <Card onPress={onPress} style={styles.row}>
+    <Card onPress={onPress} onLongPress={onLongPress} style={styles.row}>
       {item.attachmentUri ? (
         <Image source={{ uri: item.attachmentUri }} style={styles.thumb} resizeMode="cover" />
       ) : (
         <View style={styles.iconCircle}>
-          <Ionicons name={CATEGORY_ICONS[item.category]} size={20} color={theme.colors.accent} />
+          <Ionicons name={icon} size={20} color={theme.colors.accent} />
         </View>
       )}
       <View style={styles.middle}>
@@ -150,6 +183,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   backButton: {
     alignSelf: 'flex-start',
     paddingHorizontal: theme.spacing.sm,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  addBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
     paddingHorizontal: theme.spacing.sm,

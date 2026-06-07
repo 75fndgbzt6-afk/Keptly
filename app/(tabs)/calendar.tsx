@@ -7,10 +7,11 @@ import { Screen, AppText, Card, EmptyState } from '@/components/ui';
 import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
 import { Item } from '@/types';
-import { CATEGORY_ICONS } from '@/lib/category';
+import { iconForCategory } from '@/lib/category';
 import { formatCurrency } from '@/lib/currency';
 import { formatDate, todayISO } from '@/lib/date';
 import { urgencyColor, urgencyForDate } from '@/lib/urgency';
+import { useItemContextMenu } from '@/components/items';
 import { useItemsStore } from '@/stores/itemsStore';
 
 interface DayEvent {
@@ -44,6 +45,7 @@ export default function CalendarScreen() {
   const router = useRouter();
   const items = useItemsStore((s) => s.items);
   const refresh = useItemsStore((s) => s.refresh);
+  const onLongPress = useItemContextMenu();
   const [selected, setSelected] = useState<string>(todayISO());
 
   useFocusEffect(
@@ -119,10 +121,11 @@ export default function CalendarScreen() {
             <Card
               key={`${ev.item.id}-${ev.label}-${i}`}
               onPress={() => router.push(`/item/${ev.item.id}`)}
+              onLongPress={() => onLongPress(ev.item)}
               style={styles.eventRow}
             >
               <View style={styles.iconCircle}>
-                <Ionicons name={CATEGORY_ICONS[ev.item.category]} size={18} color={theme.colors.accent} />
+                <Ionicons name={iconForCategory(ev.item.category)} size={18} color={theme.colors.accent} />
               </View>
               <View style={styles.eventText}>
                 <AppText weight="medium" numberOfLines={1}>

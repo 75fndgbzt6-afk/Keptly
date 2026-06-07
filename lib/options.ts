@@ -75,7 +75,8 @@ export const SORT_OPTIONS: Option<SortKey>[] = [
   { label: 'Name', value: 'name' },
 ];
 
-// Common government document types (SPEC §6). Free text also allowed.
+// Government / personal document types (SPEC §6). "Other document" reveals a
+// free-text type field. Masking formats live in lib/masking.ts.
 export const DOC_TYPES = [
   'Passport',
   'Driving License',
@@ -83,8 +84,17 @@ export const DOC_TYPES = [
   'Voter ID',
   'PAN',
   'Aadhaar',
-  'Other',
+  'National ID',
+  'Health Insurance Card',
+  'Birth Certificate',
+  'Marriage Certificate',
+  'Educational Certificate',
+  'Property Document',
+  'Other document',
 ];
+
+/** The free-text doc type sentinel. */
+export const OTHER_DOC_TYPE = 'Other document';
 
 /**
  * Mask an identifier so a full ID number is never stored (SPEC §8).

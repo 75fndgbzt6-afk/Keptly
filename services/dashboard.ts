@@ -123,3 +123,54 @@ export function getMonthlyTrend(items: Item[], months = 6): MonthlyTrend {
 
   return { points, dataMonths };
 }
+
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+export interface CategoryTrend {
+  /** Short month labels, oldest → newest. */
+  labels: string[];
+  /** Top categories (+ an "Other" bucket) with a monthly-spend value per label. */
+  series: { category: string; values: number[] }[];
+}
+
+/**
+ * Stacked spend by category over the last `months` months. The top `topN`
+ * categories by total spend are kept; the rest roll up into "Other". Monthly
+ * spend is approximated from item start dates (no spend-history table).
+ */
+export function getCategoryTrend(items: Item[], months = 6, topN = 5): CategoryTrend {
+  const active = items.filter(isActive);
+  const now = new Date();
+  const labels: string[] = [];
+  const cutoffs: string[] = [];
+  for (let i = months - 1; i >= 0; i -= 1) {
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+    labels.push(MONTH_SHORT[monthEnd.getMonth()]);
+    cutoffs.push(toISODate(monthEnd));
+  }
+
+  const perCategory = new Map<string, number[]>();
+  for (const item of active) {
+    const monthly = itemMonthly(item);
+    if (monthly <= 0) continue;
+    const row = perCategory.get(item.category) ?? new Array(months).fill(0);
+    cutoffs.forEach((cutoff, idx) => {
+      if (item.startDate <= cutoff) row[idx] += monthly;
+    });
+    perCategory.set(item.category, row);
+  }
+
+  const ranked = [...perCategory.entries()].sort(
+    (a, b) => b[1].reduce((s, v) => s + v, 0) - a[1].reduce((s, v) => s + v, 0),
+  );
+  const top = ranked.slice(0, topN);
+  const rest = ranked.slice(topN);
+
+  const series = top.map(([category, values]) => ({ category, values }));
+  if (rest.length > 0) {
+    const other = new Array(months).fill(0);
+    for (const [, values] of rest) values.forEach((v, i) => (other[i] += v));
+    series.push({ category: 'Other', values: other });
+  }
+  return { labels, series };
+}
