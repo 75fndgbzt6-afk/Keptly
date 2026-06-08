@@ -1,47 +1,45 @@
 import React, { useEffect, useRef } from 'react';
-import { Modal, Animated, Pressable, View, StyleSheet, Easing } from 'react-native';
+import { Modal, Animated, Pressable, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
 import { AppText } from '@/components/ui';
 
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
 interface ChartModalProps {
   visible: boolean;
   title: string;
   onClose: () => void;
+  /** Icon for the dismiss control (e.g. an arrow to shrink). */
+  closeIcon?: IoniconName;
   children: React.ReactNode;
 }
 
 /** Centered, scrim-backed modal that scales in smoothly for an enlarged chart. */
-export function ChartModal({ visible, title, onClose, children }: ChartModalProps) {
+export function ChartModal({ visible, title, onClose, closeIcon = 'close', children }: ChartModalProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const scale = useRef(new Animated.Value(0.92)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.96)).current;
 
   useEffect(() => {
     if (visible) {
-      Animated.parallel([
-        Animated.timing(opacity, { toValue: 1, duration: 160, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-        Animated.spring(scale, { toValue: 1, friction: 8, tension: 80, useNativeDriver: true }),
-      ]).start();
-    } else {
-      scale.setValue(0.92);
-      opacity.setValue(0);
+      scale.setValue(0.96);
+      Animated.spring(scale, { toValue: 1, friction: 9, tension: 90, useNativeDriver: true }).start();
     }
-  }, [visible, scale, opacity]);
+  }, [visible, scale]);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="Close">
-        <Animated.View style={[styles.card, { opacity, transform: [{ scale }] }]}>
+        <Animated.View style={[styles.card, { transform: [{ scale }] }]}>
           <Pressable onPress={() => {}}>
             <View style={styles.header}>
               <AppText size="lg" weight="bold" accessibilityRole="header">
                 {title}
               </AppText>
-              <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close">
-                <Ionicons name="close" size={22} color={theme.colors.text.secondary} />
+              <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Shrink">
+                <Ionicons name={closeIcon} size={22} color={theme.colors.text.secondary} />
               </Pressable>
             </View>
             {children}

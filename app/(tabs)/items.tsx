@@ -11,12 +11,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Input, EmptyState, SkeletonList, Button } from '@/components/ui';
 import { ItemRow, SummaryRings, useItemContextMenu, RingDatum } from '@/components/items';
 import { ActivityRings, ChartModal } from '@/components/charts';
-import { SelectField } from '@/components/form';
 import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
+import { RING_COLORS } from '@/constants/chart-palette';
 import { Item } from '@/types';
 import { CATEGORIES } from '@/lib/category';
-import { SORT_OPTIONS, SortKey } from '@/lib/options';
 import { daysUntil } from '@/lib/date';
 import { formatCurrency } from '@/lib/currency';
 import { getCostPerUseMap, CostPerUse, getUsageStatsMap, UsageStat } from '@/services/value-engine';
@@ -36,29 +35,16 @@ function softBudget(monthly: number): number {
   return Math.ceil((monthly * 1.1) / step) * step;
 }
 
-function sortItems(items: Item[], key: SortKey): Item[] {
-  const sorted = [...items];
-  switch (key) {
-    case 'next_date':
-      return sorted.sort((a, b) => {
-        const da = daysUntil(a.nextDate);
-        const db = daysUntil(b.nextDate);
-        if (da === null && db === null) return 0;
-        if (da === null) return 1;
-        if (db === null) return -1;
-        return da - db;
-      });
-    case 'amount':
-      return sorted.sort((a, b) => {
-        const aa = a.amount ?? -Infinity;
-        const ba = b.amount ?? -Infinity;
-        return ba - aa;
-      });
-    case 'name':
-      return sorted.sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
-      );
-  }
+/** Default ordering: soonest due first (no user-facing sort control). */
+function sortByNextDate(items: Item[]): Item[] {
+  return [...items].sort((a, b) => {
+    const da = daysUntil(a.nextDate);
+    const db = daysUntil(b.nextDate);
+    if (da === null && db === null) return 0;
+    if (da === null) return 1;
+    if (db === null) return -1;
+    return da - db;
+  });
 }
 
 export default function ItemsScreen() {
@@ -72,13 +58,13 @@ export default function ItemsScreen() {
   const customCategories = useCategoriesStore((s) => s.custom);
   const refreshCategories = useCategoriesStore((s) => s.refresh);
   const monthlyBudget = usePreferencesStore((s) => s.monthlyBudget);
+  const usageGoalPct = usePreferencesStore((s) => s.usageGoalPct);
   const updatePrefs = usePreferencesStore((s) => s.update);
   const onLongPress = useItemContextMenu();
   const [ringsOpen, setRingsOpen] = useState(false);
 
   const [query, setQuery] = useState('');
   const [chip, setChip] = useState<ChipValue>('all');
-  const [sort, setSort] = useState<SortKey>('next_date');
   const [cpuMap, setCpuMap] = useState<Map<string, CostPerUse>>(new Map());
   const [statsMap, setStatsMap] = useState<Map<string, UsageStat>>(new Map());
   const [overdueCount, setOverdueCount] = useState(0);
@@ -125,7 +111,9 @@ export default function ItemsScreen() {
   const rings = useMemo<RingDatum[]>(() => {
     const tracked = [...statsMap.values()];
     const usedCount = tracked.filter((s) => s.logCount > 0).length;
-    const usedFraction = tracked.length > 0 ? usedCount / tracked.length : 0;
+    const usedShare = tracked.length > 0 ? usedCount / tracked.length : 0;
+    const goal = usageGoalPct > 0 ? usageGoalPct / 100 : 1;
+    const usedFraction = Math.min(1, goal > 0 ? usedShare / goal : usedShare);
 
     const monthly = getMonthlyTotal(items);
     const budget = monthlyBudget && monthlyBudget > 0 ? monthlyBudget : softBudget(monthly);
@@ -135,11 +123,11 @@ export default function ItemsScreen() {
     const handledFraction = upcoming === 0 ? 1 : Math.max(0, (upcoming - overdueCount) / upcoming);
 
     return [
-      { fraction: usedFraction, color: theme.colors.accent, label: 'Used this month', caption: `${usedCount} of ${tracked.length} tracked` },
-      { fraction: spendFraction, color: theme.colors.status.good, label: 'Spend vs budget', caption: `${formatCurrency(monthly)} of ${formatCurrency(budget)}` },
-      { fraction: handledFraction, color: theme.colors.status.warning, label: 'Renewals handled', caption: overdueCount > 0 ? `${overdueCount} need attention` : 'All on track' },
+      { fraction: usedFraction, color: RING_COLORS.green, icon: 'pulse-outline', label: 'Used this month', caption: `${usedCount} of ${tracked.length} tracked` },
+      { fraction: spendFraction, color: RING_COLORS.red, icon: 'wallet-outline', label: 'Spend vs budget', caption: `${formatCurrency(monthly)} of ${formatCurrency(budget)}` },
+      { fraction: handledFraction, color: RING_COLORS.blue, icon: 'refresh-outline', label: 'Renewals handled', caption: overdueCount > 0 ? `${overdueCount} need attention` : 'All on track' },
     ];
-  }, [statsMap, items, monthlyBudget, overdueCount, theme]);
+  }, [statsMap, items, monthlyBudget, usageGoalPct, overdueCount]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -148,8 +136,8 @@ export default function ItemsScreen() {
       const matchesQuery = q === '' || item.name.toLowerCase().includes(q);
       return matchesChip && matchesQuery;
     });
-    return sortItems(filtered, sort);
-  }, [items, query, chip, sort]);
+    return sortByNextDate(filtered);
+  }, [items, query, chip]);
 
   const hasItems = items.length > 0;
   const noResults = hasItems && visible.length === 0;
@@ -207,17 +195,6 @@ export default function ItemsScreen() {
                 );
               })}
             </ScrollView>
-
-            <View style={styles.sortRow}>
-              <View style={styles.sortField}>
-                <SelectField<SortKey>
-                  label="Sort by"
-                  value={sort}
-                  options={SORT_OPTIONS}
-                  onChange={setSort}
-                />
-              </View>
-            </View>
           </View>
 
           {chip === 'Government document' ? (
@@ -245,7 +222,7 @@ export default function ItemsScreen() {
             <FlatList
               data={visible}
               keyExtractor={(item) => item.id}
-              ListHeaderComponent={<SummaryRings rings={rings} onPress={() => setRingsOpen(true)} />}
+              ListHeaderComponent={<SummaryRings rings={rings} onExpand={() => setRingsOpen(true)} />}
               renderItem={({ item }) => {
                 const stat = statsMap.get(item.id);
                 return (
@@ -275,14 +252,16 @@ export default function ItemsScreen() {
         />
       )}
 
-      <ChartModal visible={ringsOpen} title="Your month at a glance" onClose={() => setRingsOpen(false)}>
+      <ChartModal visible={ringsOpen} title="Your month at a glance" closeIcon="contract-outline" onClose={() => setRingsOpen(false)}>
         <View style={styles.modalRings}>
           <ActivityRings size={200} thickness={18} gap={6} rings={rings.map((r) => ({ fraction: r.fraction, color: r.color }))} />
         </View>
         <View style={styles.modalLegend}>
           {rings.map((r) => (
             <View key={r.label} style={styles.modalLegendRow}>
-              <View style={[styles.legendDot, { backgroundColor: r.color }]} />
+              <View style={[styles.iconChip, { backgroundColor: r.color }]}>
+                <Ionicons name={r.icon} size={13} color={theme.colors.text.inverse} />
+              </View>
               <View style={styles.flex1}>
                 <AppText size="sm" weight="medium">
                   {r.label}
@@ -297,12 +276,22 @@ export default function ItemsScreen() {
             </View>
           ))}
         </View>
+        <AppText size="sm" weight="semibold" color={theme.colors.text.tertiary}>
+          CUSTOMISE
+        </AppText>
         <Input
           label="Monthly budget (0 = auto)"
           keyboardType="number-pad"
           value={monthlyBudget > 0 ? String(monthlyBudget) : ''}
-          placeholder="Set a target to customise the spend ring"
+          placeholder="Spend-ring target"
           onChangeText={(t) => updatePrefs({ monthlyBudget: Number(t.replace(/\D/g, '')) || 0 })}
+        />
+        <Input
+          label="Usage goal (% of tracked items)"
+          keyboardType="number-pad"
+          value={usageGoalPct > 0 ? String(usageGoalPct) : ''}
+          placeholder="e.g. 80"
+          onChangeText={(t) => updatePrefs({ usageGoalPct: Math.min(100, Number(t.replace(/\D/g, '')) || 0) })}
         />
         <Button label="Done" variant="secondary" onPress={() => setRingsOpen(false)} fullWidth />
       </ChartModal>
@@ -322,10 +311,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.sm,
   },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  iconChip: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   flex1: {
     flex: 1,

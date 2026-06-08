@@ -3,7 +3,7 @@ import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
-import { AppText, Input, Marquee } from '@/components/ui';
+import { AppText, Input } from '@/components/ui';
 import { CATEGORIES, iconForCategory } from '@/lib/category';
 
 const OTHER = 'Other';
@@ -38,12 +38,17 @@ export function CategoryPicker({ label, value, onChange, customCategories }: Cat
       accessibilityLabel={name}
     >
       <Ionicons name={icon} size={22} color={active ? theme.colors.accent : theme.colors.text.secondary} />
-      <Marquee
-        text={name}
-        active={active}
-        weight={active ? 'semibold' : 'regular'}
-        color={active ? theme.colors.accent : theme.colors.text.secondary}
-      />
+      <View style={styles.labelSlot}>
+        <AppText
+          size="xs"
+          weight={active ? 'semibold' : 'regular'}
+          color={active ? theme.colors.accent : theme.colors.text.secondary}
+          align="center"
+          numberOfLines={2}
+        >
+          {name}
+        </AppText>
+      </View>
     </TouchableOpacity>
   );
 
@@ -82,10 +87,10 @@ const makeStyles = (theme: Theme) =>
       gap: theme.spacing.sm,
     },
     tile: {
-      width: '23%',
-      minWidth: 72,
+      width: '31%',
+      minWidth: 96,
       flexGrow: 1,
-      aspectRatio: 1.1,
+      minHeight: 84,
       borderRadius: theme.radius.md,
       borderWidth: 1.5,
       borderColor: theme.colors.border,
@@ -93,10 +98,16 @@ const makeStyles = (theme: Theme) =>
       alignItems: 'center',
       justifyContent: 'center',
       gap: theme.spacing.xs,
-      paddingHorizontal: 4,
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.xs,
     },
     tileActive: {
       borderColor: theme.colors.accent,
       backgroundColor: theme.colors.accentLight,
+    },
+    labelSlot: {
+      height: 30,
+      justifyContent: 'center',
+      width: '100%',
     },
   });

@@ -45,6 +45,7 @@ export default function HomeScreen() {
 
   const [alerts, setAlerts] = useState<ActiveAlert[]>([]);
   const [donutOpen, setDonutOpen] = useState(false);
+  const [selectedSlice, setSelectedSlice] = useState<number | null>(null);
 
   useEffect(() => {
     refreshPermission();
@@ -161,34 +162,71 @@ export default function HomeScreen() {
             ) : null}
           </Card>
 
-          <ChartModal visible={donutOpen} title="Spend by category" onClose={() => setDonutOpen(false)}>
+          <ChartModal
+            visible={donutOpen}
+            title="Spend by category"
+            closeIcon="contract-outline"
+            onClose={() => {
+              setDonutOpen(false);
+              setSelectedSlice(null);
+            }}
+          >
             <View style={styles.modalDonut}>
-              <Donut data={donutSlices} size={200} thickness={30}>
-                <AppText size="xs" color={theme.colors.text.tertiary}>
-                  Monthly
-                </AppText>
-                <AppText size="lg" weight="bold">
-                  {formatCurrency(monthly)}
-                </AppText>
+              <Donut data={donutSlices} size={200} thickness={30} selectedIndex={selectedSlice}>
+                {selectedSlice != null && spendByCategory[selectedSlice] ? (
+                  <>
+                    <AppText size="xs" color={theme.colors.text.tertiary} numberOfLines={1}>
+                      {spendByCategory[selectedSlice].category}
+                    </AppText>
+                    <AppText size="lg" weight="bold">
+                      {monthly > 0
+                        ? Math.round((spendByCategory[selectedSlice].monthlyAmount / monthly) * 100)
+                        : 0}
+                      %
+                    </AppText>
+                    <AppText size="xs" color={theme.colors.text.tertiary}>
+                      {formatCurrency(spendByCategory[selectedSlice].monthlyAmount)}
+                    </AppText>
+                  </>
+                ) : (
+                  <>
+                    <AppText size="xs" color={theme.colors.text.tertiary}>
+                      Monthly
+                    </AppText>
+                    <AppText size="lg" weight="bold">
+                      {formatCurrency(monthly)}
+                    </AppText>
+                  </>
+                )}
               </Donut>
             </View>
             <View style={styles.modalLegend}>
-              {spendByCategory.map((c, i) => (
-                <View key={c.category} style={styles.modalLegendRow}>
-                  <View style={[styles.legendDot, { backgroundColor: chartColorAt(i) }]} />
-                  <AppText size="sm" style={styles.flex1} numberOfLines={1}>
-                    {c.category}
-                  </AppText>
-                  <AppText size="sm" weight="medium">
-                    {formatCurrency(c.monthlyAmount)}
-                  </AppText>
-                  <AppText size="xs" color={theme.colors.text.tertiary} style={styles.legendPct}>
-                    {monthly > 0 ? Math.round((c.monthlyAmount / monthly) * 100) : 0}%
-                  </AppText>
-                </View>
-              ))}
+              {spendByCategory.map((c, i) => {
+                const active = selectedSlice === i;
+                return (
+                  <TouchableOpacity
+                    key={c.category}
+                    activeOpacity={0.7}
+                    style={[styles.modalLegendRow, selectedSlice != null && !active && styles.legendDim]}
+                    onPress={() => setSelectedSlice(active ? null : i)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${c.category}, ${formatCurrency(c.monthlyAmount)}`}
+                  >
+                    <View style={[styles.legendDot, { backgroundColor: chartColorAt(i) }]} />
+                    <AppText size="sm" style={styles.flex1} numberOfLines={1}>
+                      {c.category}
+                    </AppText>
+                    <AppText size="sm" weight="medium">
+                      {formatCurrency(c.monthlyAmount)}
+                    </AppText>
+                    <AppText size="xs" color={theme.colors.text.tertiary} style={styles.legendPct}>
+                      {monthly > 0 ? Math.round((c.monthlyAmount / monthly) * 100) : 0}%
+                    </AppText>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-            <Button label="Open Insights" variant="secondary" onPress={() => { setDonutOpen(false); router.push('/(tabs)/insights'); }} fullWidth />
+            <Button label="Open Insights" variant="secondary" onPress={() => { setDonutOpen(false); setSelectedSlice(null); router.push('/(tabs)/insights'); }} fullWidth />
           </ChartModal>
 
           {potentialSavings > 0 ? (
@@ -412,6 +450,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
+    paddingVertical: 2,
+  },
+  legendDim: {
+    opacity: 0.4,
   },
   legendDot: {
     width: 10,

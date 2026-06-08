@@ -13,6 +13,16 @@ export const CHART_PALETTE = [
 
 export type ChartColor = (typeof CHART_PALETTE)[number];
 
+/**
+ * Apple-Watch-style activity-ring colors — three clean, distinct hues (red, green,
+ * light blue). Fixed (not theme-derived) so the rings read the same in both modes.
+ */
+export const RING_COLORS = {
+  red: '#FA5152',
+  green: '#3DD27E',
+  blue: '#4Fb8F0',
+} as const;
+
 /** Color for a series index, cycling through the palette. */
 export function chartColorAt(index: number): string {
   return CHART_PALETTE[((index % CHART_PALETTE.length) + CHART_PALETTE.length) % CHART_PALETTE.length];

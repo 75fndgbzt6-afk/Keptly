@@ -15,7 +15,7 @@ export default function TabLayout() {
   return (
     <Tabs
       tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{ headerShown: false, animation: 'fade' }}
+      screenOptions={{ headerShown: false, animation: 'none', lazy: false }}
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="items" />

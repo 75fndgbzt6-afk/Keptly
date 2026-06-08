@@ -16,6 +16,8 @@ export interface Preferences {
   defaultLeadDays: number[]; // e.g. [30, 14, 7, 1]
   /** Soft monthly budget for the Items-tab spend ring. 0 = auto-derive. */
   monthlyBudget: number;
+  /** Target % of tracked items used per month (the "used" ring fills to 100% at goal). */
+  usageGoalPct: number;
 }
 
 const DEFAULTS: Preferences = {
@@ -26,6 +28,7 @@ const DEFAULTS: Preferences = {
   quietEndHour: 7,
   defaultLeadDays: [30, 14, 7, 1],
   monthlyBudget: 0,
+  usageGoalPct: 100,
 };
 
 function parse(raw: string | null): Preferences {
@@ -45,6 +48,7 @@ function parse(raw: string | null): Preferences {
         ? v.defaultLeadDays.filter((n): n is number => typeof n === 'number')
         : DEFAULTS.defaultLeadDays,
       monthlyBudget: typeof v.monthlyBudget === 'number' ? v.monthlyBudget : DEFAULTS.monthlyBudget,
+      usageGoalPct: typeof v.usageGoalPct === 'number' ? v.usageGoalPct : DEFAULTS.usageGoalPct,
     };
   } catch {
     return DEFAULTS;
@@ -72,6 +76,7 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
       quietEndHour: get().quietEndHour,
       defaultLeadDays: get().defaultLeadDays,
       monthlyBudget: get().monthlyBudget,
+      usageGoalPct: get().usageGoalPct,
       ...patch,
     };
     set(next);
