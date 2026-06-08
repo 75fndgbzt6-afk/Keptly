@@ -1,0 +1,27 @@
+name = "renewly-api"
+main = "src/index.ts"
+compatibility_date = "2026-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+# --- KV namespaces ---
+# Create with:
+#   wrangler kv namespace create QUOTA
+#   wrangler kv namespace create CACHE
+# then paste the returned ids below.
+[[kv_namespaces]]
+binding = "QUOTA"
+id = "REPLACE_WITH_QUOTA_KV_ID"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "REPLACE_WITH_CACHE_KV_ID"
+
+# --- Non-secret config ---
+[vars]
+MONTHLY_QUOTA = "50"
+MODEL_HAIKU = "claude-haiku-4-5"
+MODEL_SONNET = "claude-sonnet-4-6"
+ALLOWED_ORIGIN = "*"
+
+# --- Secret (DO NOT put the key here) ---
+# Set with: wrangler secret put ANTHROPIC_API_KEY
