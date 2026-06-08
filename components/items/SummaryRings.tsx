@@ -16,12 +16,12 @@ export interface RingDatum {
   icon: IoniconName;
 }
 
-/** Apple-Watch-style summary card: three rings + an icon legend + an expand arrow. */
+/** Apple-Watch-style summary card: three rings + icon legend. Tap anywhere to expand. */
 export function SummaryRings({ rings, onExpand }: { rings: RingDatum[]; onExpand?: () => void }) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
 
-  return (
+  const inner = (
     <Card style={styles.card}>
       <ActivityRings
         size={104}
@@ -46,19 +46,23 @@ export function SummaryRings({ rings, onExpand }: { rings: RingDatum[]; onExpand
           </View>
         ))}
       </View>
-      {onExpand ? (
-        <TouchableOpacity
-          onPress={onExpand}
-          style={styles.expand}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Enlarge rings"
-        >
-          <Ionicons name="expand-outline" size={18} color={theme.colors.text.tertiary} />
-        </TouchableOpacity>
-      ) : null}
     </Card>
   );
+
+  if (onExpand) {
+    return (
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={onExpand}
+        accessibilityRole="button"
+        accessibilityLabel="Tap to enlarge rings"
+      >
+        {inner}
+      </TouchableOpacity>
+    );
+  }
+
+  return inner;
 }
 
 const makeStyles = (theme: Theme) =>
@@ -66,7 +70,7 @@ const makeStyles = (theme: Theme) =>
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: theme.spacing.lg,
+      gap: theme.spacing.base,
     },
     legend: {
       flex: 1,
@@ -86,14 +90,5 @@ const makeStyles = (theme: Theme) =>
     },
     legendText: {
       flex: 1,
-    },
-    expand: {
-      position: 'absolute',
-      top: theme.spacing.sm,
-      right: theme.spacing.sm,
-      width: 28,
-      height: 28,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
   });

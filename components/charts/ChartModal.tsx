@@ -5,19 +5,15 @@ import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
 import { AppText } from '@/components/ui';
 
-type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-
 interface ChartModalProps {
   visible: boolean;
   title: string;
   onClose: () => void;
-  /** Icon for the dismiss control (e.g. an arrow to shrink). */
-  closeIcon?: IoniconName;
   children: React.ReactNode;
 }
 
 /** Centered, scrim-backed modal that scales in smoothly for an enlarged chart. */
-export function ChartModal({ visible, title, onClose, closeIcon = 'close', children }: ChartModalProps) {
+export function ChartModal({ visible, title, onClose, children }: ChartModalProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const scale = useRef(new Animated.Value(0.96)).current;
@@ -34,13 +30,18 @@ export function ChartModal({ visible, title, onClose, closeIcon = 'close', child
       <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="Close">
         <Animated.View style={[styles.card, { transform: [{ scale }] }]}>
           <Pressable onPress={() => {}}>
+            {/* Drag handle */}
+            <View style={styles.handle} />
+            {/* Header: centered title + X close */}
             <View style={styles.header}>
-              <AppText size="lg" weight="bold" accessibilityRole="header">
+              <Pressable onPress={onClose} hitSlop={8} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel="Close">
+                <Ionicons name="close" size={20} color={theme.colors.text.secondary} />
+              </Pressable>
+              <AppText size="lg" weight="bold" align="center" accessibilityRole="header">
                 {title}
               </AppText>
-              <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Shrink">
-                <Ionicons name={closeIcon} size={22} color={theme.colors.text.secondary} />
-              </Pressable>
+              {/* Spacer to balance the close button */}
+              <View style={styles.closeBtn} />
             </View>
             {children}
           </Pressable>
@@ -67,9 +68,24 @@ const makeStyles = (theme: Theme) =>
       padding: theme.spacing.lg,
       gap: theme.spacing.base,
     },
+    handle: {
+      width: 36,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.colors.border,
+      alignSelf: 'center',
+      marginBottom: theme.spacing.sm,
+    },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+      marginBottom: theme.spacing.sm,
+    },
+    closeBtn: {
+      width: 32,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
   });

@@ -165,14 +165,13 @@ export default function HomeScreen() {
           <ChartModal
             visible={donutOpen}
             title="Spend by category"
-            closeIcon="contract-outline"
             onClose={() => {
               setDonutOpen(false);
               setSelectedSlice(null);
             }}
           >
             <View style={styles.modalDonut}>
-              <Donut data={donutSlices} size={200} thickness={30} selectedIndex={selectedSlice}>
+              <Donut data={donutSlices} size={200} thickness={30} selectedIndex={selectedSlice} onSelect={setSelectedSlice}>
                 {selectedSlice != null && spendByCategory[selectedSlice] ? (
                   <>
                     <AppText size="xs" color={theme.colors.text.tertiary} numberOfLines={1}>

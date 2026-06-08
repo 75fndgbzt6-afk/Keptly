@@ -8,12 +8,12 @@ import {
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Screen, AppText, Input, EmptyState, SkeletonList, Button } from '@/components/ui';
+import { Screen, AppText, Card, Input, EmptyState, SkeletonList, Button } from '@/components/ui';
 import { ItemRow, SummaryRings, useItemContextMenu, RingDatum } from '@/components/items';
-import { ActivityRings, ChartModal } from '@/components/charts';
+import { ActivityRings, ChartModal, Donut } from '@/components/charts';
 import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
-import { RING_COLORS } from '@/constants/chart-palette';
+import { RING_COLORS, chartColorAt } from '@/constants/chart-palette';
 import { Item } from '@/types';
 import { CATEGORIES } from '@/lib/category';
 import { daysUntil } from '@/lib/date';
@@ -222,7 +222,11 @@ export default function ItemsScreen() {
             <FlatList
               data={visible}
               keyExtractor={(item) => item.id}
-              ListHeaderComponent={<SummaryRings rings={rings} onExpand={() => setRingsOpen(true)} />}
+              ListHeaderComponent={
+                chip === 'all'
+                  ? <SummaryRings rings={rings} onExpand={() => setRingsOpen(true)} />
+                  : <CategoryHeader items={visible} category={chip} />
+              }
               renderItem={({ item }) => {
                 const stat = statsMap.get(item.id);
                 return (
@@ -252,7 +256,7 @@ export default function ItemsScreen() {
         />
       )}
 
-      <ChartModal visible={ringsOpen} title="Your month at a glance" closeIcon="contract-outline" onClose={() => setRingsOpen(false)}>
+      <ChartModal visible={ringsOpen} title="Your month at a glance" onClose={() => setRingsOpen(false)}>
         <View style={styles.modalRings}>
           <ActivityRings size={200} thickness={18} gap={6} rings={rings.map((r) => ({ fraction: r.fraction, color: r.color }))} />
         </View>
@@ -276,23 +280,6 @@ export default function ItemsScreen() {
             </View>
           ))}
         </View>
-        <AppText size="sm" weight="semibold" color={theme.colors.text.tertiary}>
-          CUSTOMISE
-        </AppText>
-        <Input
-          label="Monthly budget (0 = auto)"
-          keyboardType="number-pad"
-          value={monthlyBudget > 0 ? String(monthlyBudget) : ''}
-          placeholder="Spend-ring target"
-          onChangeText={(t) => updatePrefs({ monthlyBudget: Number(t.replace(/\D/g, '')) || 0 })}
-        />
-        <Input
-          label="Usage goal (% of tracked items)"
-          keyboardType="number-pad"
-          value={usageGoalPct > 0 ? String(usageGoalPct) : ''}
-          placeholder="e.g. 80"
-          onChangeText={(t) => updatePrefs({ usageGoalPct: Math.min(100, Number(t.replace(/\D/g, '')) || 0) })}
-        />
         <Button label="Done" variant="secondary" onPress={() => setRingsOpen(false)} fullWidth />
       </ChartModal>
     </Screen>
@@ -369,3 +356,113 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
   },
 });
+
+// ─── Category spend header (shown instead of SummaryRings when a chip is active) ─
+
+function CategoryHeader({ items, category }: { items: Item[]; category: string }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeCatStyles);
+  const [selectedSlice, setSelectedSlice] = useState<number | null>(null);
+
+  const slices = useMemo(
+    () => items.map((item, i) => ({
+      value: item.amount && item.billingCycle
+        ? item.billingCycle === 'monthly' ? item.amount
+          : item.billingCycle === 'yearly' ? item.amount / 12
+          : item.billingCycle === 'weekly' ? item.amount * 4.33
+          : item.amount
+        : 0,
+      color: chartColorAt(i),
+      name: item.name,
+    })),
+    [items],
+  );
+  const total = slices.reduce((s, d) => s + d.value, 0);
+  const donutData = slices.map((s) => ({ value: s.value, color: s.color }));
+
+  return (
+    <Card style={styles.card}>
+      <View style={styles.donutWrap}>
+        <Donut
+          data={donutData}
+          size={100}
+          thickness={13}
+          selectedIndex={selectedSlice}
+          onSelect={setSelectedSlice}
+        >
+          {selectedSlice != null && slices[selectedSlice] ? (
+            <>
+              <AppText size="xs" color={theme.colors.text.tertiary} numberOfLines={1} align="center">
+                {slices[selectedSlice].name}
+              </AppText>
+              <AppText size="sm" weight="bold" numberOfLines={1}>
+                {formatCurrency(slices[selectedSlice].value)}
+              </AppText>
+            </>
+          ) : (
+            <>
+              <AppText size="xs" color={theme.colors.text.tertiary}>
+                /mo
+              </AppText>
+              <AppText size="sm" weight="bold">
+                {formatCurrency(total)}
+              </AppText>
+            </>
+          )}
+        </Donut>
+      </View>
+      <View style={styles.legend}>
+        {slices.map((s, i) => (
+          <TouchableOpacity
+            key={s.name}
+            activeOpacity={0.7}
+            style={[styles.legendRow, selectedSlice != null && selectedSlice !== i && styles.dim]}
+            onPress={() => setSelectedSlice(selectedSlice === i ? null : i)}
+            accessibilityRole="button"
+          >
+            <View style={[styles.dot, { backgroundColor: s.color }]} />
+            <AppText size="xs" style={styles.flex1} numberOfLines={1}>
+              {s.name}
+            </AppText>
+            <AppText size="xs" weight="medium">
+              {formatCurrency(s.value)}
+            </AppText>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </Card>
+  );
+}
+
+const makeCatStyles = (theme: Theme) =>
+  StyleSheet.create({
+    card: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.base,
+    },
+    donutWrap: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    legend: {
+      flex: 1,
+      gap: 6,
+    },
+    legendRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.xs,
+    },
+    dot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    flex1: {
+      flex: 1,
+    },
+    dim: {
+      opacity: 0.4,
+    },
+  });

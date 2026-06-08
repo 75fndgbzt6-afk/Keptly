@@ -40,6 +40,7 @@ export default function InsightsScreen() {
   const [cpuMap, setCpuMap] = useState<Map<string, CostPerUse>>(new Map());
   const [seeding, setSeeding] = useState(false);
   const [narrations, setNarrations] = useState<Record<string, string>>({});
+  const [selectedDonutSlice, setSelectedDonutSlice] = useState<number | null>(null);
 
   const reload = useCallback(async () => {
     await refreshItems();
@@ -179,25 +180,43 @@ export default function InsightsScreen() {
               <Card style={styles.donutCard}>
                 <Donut
                   data={donutData.map((d) => ({ value: d.monthlyAmount, color: d.color }))}
-                  size={132}
-                  thickness={18}
+                  size={148}
+                  thickness={20}
+                  selectedIndex={selectedDonutSlice}
+                  onSelect={setSelectedDonutSlice}
                 >
-                  <AppText size="xs" color={theme.colors.text.tertiary}>
-                    Monthly
-                  </AppText>
-                  <AppText size="md" weight="bold">
-                    {formatCurrency(monthlyTotal)}
-                  </AppText>
+                  {selectedDonutSlice != null && donutData[selectedDonutSlice] ? (
+                    <>
+                      <AppText size="xs" color={theme.colors.text.tertiary} numberOfLines={1} align="center">
+                        {donutData[selectedDonutSlice].category}
+                      </AppText>
+                      <AppText size="md" weight="bold">
+                        {formatCurrency(donutData[selectedDonutSlice].monthlyAmount)}
+                      </AppText>
+                      <AppText size="xs" color={theme.colors.text.tertiary}>
+                        {monthlyTotal > 0
+                          ? Math.round((donutData[selectedDonutSlice].monthlyAmount / monthlyTotal) * 100)
+                          : 0}%
+                      </AppText>
+                    </>
+                  ) : (
+                    <>
+                      <AppText size="xs" color={theme.colors.text.tertiary}>
+                        Monthly
+                      </AppText>
+                      <AppText size="md" weight="bold">
+                        {formatCurrency(monthlyTotal)}
+                      </AppText>
+                    </>
+                  )}
                 </Donut>
                 <View style={styles.legend}>
-                  {donutData.map((d) => (
+                  {donutData.map((d, i) => (
                     <TouchableOpacity
                       key={d.category}
                       activeOpacity={0.7}
-                      style={styles.legendRow}
-                      onPress={() =>
-                        router.push({ pathname: '/(tabs)/items', params: { category: d.category } })
-                      }
+                      style={[styles.legendRow, selectedDonutSlice != null && selectedDonutSlice !== i && styles.legendDim]}
+                      onPress={() => setSelectedDonutSlice(selectedDonutSlice === i ? null : i)}
                       accessibilityRole="button"
                       accessibilityLabel={`${d.category}, ${formatCurrency(d.monthlyAmount)} per month`}
                     >
@@ -379,6 +398,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   legendName: {
     flex: 1,
+  },
+  legendDim: {
+    opacity: 0.35,
   },
   legendPct: {
     width: 40,
