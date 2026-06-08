@@ -1,11 +1,11 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Calendar, DateData } from 'react-native-calendars';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, EmptyState } from '@/components/ui';
+import { MonthCalendar, EventDot } from '@/components/calendar/MonthCalendar';
 import { Theme } from '@/constants/theme';
-import { useTheme, useThemedStyles } from '@/components/theme';
+import { useThemedStyles, useTheme } from '@/components/theme';
 import { Item } from '@/types';
 import { iconForCategory } from '@/lib/category';
 import { formatCurrency } from '@/lib/currency';
@@ -17,6 +17,8 @@ import { useItemsStore } from '@/stores/itemsStore';
 interface DayEvent {
   item: Item;
   label: string;
+  /** ISO date of this specific event (renewal / trial / expiry / bill) */
+  date: string;
 }
 
 /** Collect the calendar-relevant date for each item (renewal / trial / expiry / bill). */
@@ -25,7 +27,7 @@ function buildEvents(items: Item[]): Map<string, DayEvent[]> {
   const add = (date: string | null | undefined, item: Item, label: string) => {
     if (!date) return;
     const list = map.get(date) ?? [];
-    list.push({ item, label });
+    list.push({ item, label, date });
     map.set(date, list);
   };
 
@@ -56,18 +58,14 @@ export default function CalendarScreen() {
 
   const events = useMemo(() => buildEvents(items), [items]);
 
-  const markedDates = useMemo(() => {
-    const marks: Record<string, { marked?: boolean; dotColor?: string; selected?: boolean; selectedColor?: string }> = {};
-    for (const date of events.keys()) {
-      marks[date] = { marked: true, dotColor: urgencyColor(urgencyForDate(date), theme.colors) };
+  // MonthCalendar needs EventDot maps (just the date for urgency coloring)
+  const dotEvents = useMemo<Map<string, EventDot[]>>(() => {
+    const m = new Map<string, EventDot[]>();
+    for (const [date, dayEvs] of events) {
+      m.set(date, dayEvs.map((ev) => ({ date: ev.date })));
     }
-    marks[selected] = {
-      ...(marks[selected] ?? {}),
-      selected: true,
-      selectedColor: theme.colors.accent,
-    };
-    return marks;
-  }, [events, selected, theme]);
+    return m;
+  }, [events]);
 
   const dayEvents = events.get(selected) ?? [];
   const hasItems = items.length > 0;
@@ -88,26 +86,15 @@ export default function CalendarScreen() {
         />
       ) : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <Card style={styles.calendarCard} padded={false}>
-            <Calendar
-              current={selected}
-              onDayPress={(day: DateData) => setSelected(day.dateString)}
-              markedDates={markedDates}
-              theme={{
-                todayTextColor: theme.colors.accent,
-                arrowColor: theme.colors.accent,
-                selectedDayBackgroundColor: theme.colors.accent,
-                selectedDayTextColor: theme.colors.text.inverse,
-                textDayFontFamily: 'Inter_400Regular',
-                textMonthFontFamily: 'Inter_600SemiBold',
-                textDayHeaderFontFamily: 'Inter_500Medium',
-                monthTextColor: theme.colors.text.primary,
-                dayTextColor: theme.colors.text.primary,
-                textDisabledColor: theme.colors.text.tertiary,
-              }}
+          <Card padded={false} style={styles.calendarCard}>
+            <MonthCalendar
+              events={dotEvents}
+              selected={selected}
+              onSelectDay={setSelected}
             />
           </Card>
 
+          {/* ── Day detail ──────────────────────────────────────────────── */}
           <View style={styles.dayHeader}>
             <AppText weight="semibold">{formatDate(selected)}</AppText>
             <AppText size="sm" color={theme.colors.text.tertiary}>
@@ -117,27 +104,40 @@ export default function CalendarScreen() {
             </AppText>
           </View>
 
-          {dayEvents.map((ev, i) => (
-            <Card
-              key={`${ev.item.id}-${ev.label}-${i}`}
-              onPress={() => router.push(`/item/${ev.item.id}`)}
-              onLongPress={() => onLongPress(ev.item)}
-              style={styles.eventRow}
-            >
-              <View style={styles.iconCircle}>
-                <Ionicons name={iconForCategory(ev.item.category)} size={18} color={theme.colors.accent} />
-              </View>
-              <View style={styles.eventText}>
-                <AppText weight="medium" numberOfLines={1}>
-                  {ev.item.name}
-                </AppText>
-                <AppText size="xs" color={theme.colors.text.tertiary}>
-                  {ev.label}
-                </AppText>
-              </View>
-              <AppText weight="medium">{formatCurrency(ev.item.amount, ev.item.currency)}</AppText>
-            </Card>
-          ))}
+          {dayEvents.length === 0 ? (
+            <View style={styles.emptyDay}>
+              <AppText size="sm" color={theme.colors.text.tertiary}>
+                No renewals, bills, or expiries on this day.
+              </AppText>
+            </View>
+          ) : null}
+
+          {dayEvents.map((ev, i) => {
+            const level = urgencyForDate(ev.date);
+            const dotColor = urgencyColor(level, theme.colors);
+            return (
+              <Card
+                key={`${ev.item.id}-${ev.label}-${i}`}
+                onPress={() => router.push(`/item/${ev.item.id}`)}
+                onLongPress={() => onLongPress(ev.item)}
+                style={styles.eventRow}
+              >
+                <View style={[styles.urgencyBar, { backgroundColor: dotColor }]} />
+                <View style={styles.iconCircle}>
+                  <Ionicons name={iconForCategory(ev.item.category)} size={18} color={theme.colors.accent} />
+                </View>
+                <View style={styles.eventText}>
+                  <AppText weight="medium" numberOfLines={1}>
+                    {ev.item.name}
+                  </AppText>
+                  <AppText size="xs" color={theme.colors.text.tertiary}>
+                    {ev.label}
+                  </AppText>
+                </View>
+                <AppText weight="medium">{formatCurrency(ev.item.amount, ev.item.currency)}</AppText>
+              </Card>
+            );
+          })}
         </ScrollView>
       )}
     </Screen>
@@ -161,13 +161,26 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
+  },
+  emptyDay: {
+    paddingVertical: theme.spacing.md,
   },
   eventRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.md,
-    padding: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.base,
+    overflow: 'hidden',
+  },
+  urgencyBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3,
+    borderRadius: 3,
   },
   iconCircle: {
     width: 36,
