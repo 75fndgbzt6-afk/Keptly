@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,9 +16,11 @@ import { formatCurrency } from '@/lib/currency';
 import { getSpendByCategory, getMonthlyTrend, getCategoryTrend } from '@/services/dashboard';
 import { getCostPerUseMap, CostPerUse } from '@/services/value-engine';
 import { applyRecommendation, dismissRecommendation } from '@/services/recommendation-engine';
+import { narrateRecommendation } from '@/services/ai';
 import { seedSampleData } from '@/services/dev-seed';
 import { useItemsStore } from '@/stores/itemsStore';
 import { useRecommendationsStore } from '@/stores/recommendationsStore';
+import { useAiStore } from '@/stores/aiStore';
 
 interface LeaderEntry {
   item: Item;
@@ -34,8 +36,10 @@ export default function InsightsScreen() {
   const recommendations = useRecommendationsStore((s) => s.recommendations);
   const refreshRecs = useRecommendationsStore((s) => s.refresh);
 
+  const aiEnabled = useAiStore((s) => s.enabled);
   const [cpuMap, setCpuMap] = useState<Map<string, CostPerUse>>(new Map());
   const [seeding, setSeeding] = useState(false);
+  const [narrations, setNarrations] = useState<Record<string, string>>({});
 
   const reload = useCallback(async () => {
     await refreshItems();
@@ -86,6 +90,28 @@ export default function InsightsScreen() {
       ),
     [recommendations],
   );
+
+  // When AI is on, replace deterministic copy with warm narration (cached per id).
+  // Falls back silently to the Phase 4 copy when off / failed / quota-exhausted.
+  useEffect(() => {
+    if (!aiEnabled || orderedRecs.length === 0) return;
+    let active = true;
+    (async () => {
+      for (const rec of orderedRecs) {
+        if (narrations[rec.id]) continue;
+        try {
+          const text = await narrateRecommendation(rec);
+          if (active) setNarrations((prev) => ({ ...prev, [rec.id]: text }));
+        } catch {
+          // keep deterministic reason
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+    // narrations intentionally omitted to avoid a refetch loop
+  }, [aiEnabled, orderedRecs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onApply = async (rec: Recommendation) => {
     const action = await applyRecommendation(rec.id);
@@ -216,6 +242,7 @@ export default function InsightsScreen() {
                   itemName={itemsById.get(rec.itemId)?.name ?? 'Item'}
                   onApply={() => onApply(rec)}
                   onDismiss={() => onDismiss(rec)}
+                  narration={narrations[rec.id] ?? null}
                 />
               ))}
             </Section>

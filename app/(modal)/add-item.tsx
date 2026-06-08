@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Button, Input } from '@/components/ui';
@@ -33,6 +33,12 @@ import { getFullId, setFullId, clearFullId } from '@/services/vault';
 import { useItemsStore } from '@/stores/itemsStore';
 import { useCategoriesStore } from '@/stores/categoriesStore';
 import { usePreferencesStore } from '@/stores/preferencesStore';
+import { useAiStore } from '@/stores/aiStore';
+import { parseEntry as aiParseEntry, parseImage as aiParseImage, AiError } from '@/services/ai';
+import { pickImageBase64, ScanSource } from '@/services/scan';
+import { startVoice, stopVoice, isVoiceAvailable } from '@/services/voice';
+import { ParsedEntry } from '@/lib/ai-types';
+import { AI_COPY } from '@/lib/copy/ai';
 import { CURRENCY_SYMBOLS } from '@/constants/config';
 
 const DOC_TYPE_OPTIONS: Option<string>[] = DOC_TYPES.map((d) => ({ label: d, value: d }));
@@ -88,6 +94,7 @@ function initialForm(initialCategory?: string): FormState {
 type Errors = Partial<Record<'name' | 'amount' | 'trialEndDate', string>>;
 
 export default function AddEditItemModal() {
+  const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const { id, category: initialCategory } = useLocalSearchParams<{ id?: string; category?: string }>();
@@ -98,11 +105,19 @@ export default function AddEditItemModal() {
   const addCustomCategory = useCategoriesStore((s) => s.add);
   const defaultCurrency = usePreferencesStore((s) => s.defaultCurrency);
   const currencySymbol = CURRENCY_SYMBOLS[defaultCurrency] ?? defaultCurrency;
+  const aiEnabled = useAiStore((s) => s.enabled);
 
   const [form, setForm] = useState<FormState>(() => initialForm(initialCategory));
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(isEdit);
+
+  // Quick-add (AI) state.
+  const [quickText, setQuickText] = useState('');
+  const [quickBusy, setQuickBusy] = useState(false);
+  const [quickError, setQuickError] = useState<string | null>(null);
+  const [listening, setListening] = useState(false);
+  const voiceOk = useRef(false);
 
   useEffect(() => {
     refreshCategories();
@@ -169,6 +184,105 @@ export default function AddEditItemModal() {
     setForm((p) => ({ ...p, details: { ...(p.details as UtilityDetails), ...patch } }));
   const setInsurance = (patch: Partial<Omit<InsuranceDetails, 'kind'>>) =>
     setForm((p) => ({ ...p, details: { ...(p.details as InsuranceDetails), ...patch } }));
+
+  // --- Quick add (AI): fill the form from a parsed entry for confirm-and-save ---
+  const applyParsed = useCallback((entry: ParsedEntry) => {
+    setForm((prev) => {
+      const category = entry.category || prev.category;
+      return {
+        ...prev,
+        name: entry.name || prev.name,
+        category,
+        amount: entry.amount != null ? String(entry.amount) : prev.amount,
+        billingCycle: entry.billingCycle,
+        isFreeTrial: entry.isFreeTrial,
+        trialEndDate: prev.trialEndDate,
+        startDate: entry.startDate || prev.startDate,
+        notes: entry.notes || prev.notes,
+        details: detailsForCategory(category),
+      };
+    });
+    setQuickError(null);
+  }, []);
+
+  // Assistant "add …" intent pre-fills via the store (create flow only).
+  useEffect(() => {
+    if (isEdit) return;
+    const pending = useAiStore.getState().consumePrefill();
+    if (pending) applyParsed(pending);
+  }, [isEdit, applyParsed]);
+
+  useEffect(() => {
+    isVoiceAvailable().then((ok) => {
+      voiceOk.current = ok;
+    });
+    return () => {
+      void stopVoice();
+    };
+  }, []);
+
+  const onParseText = async () => {
+    const text = quickText.trim();
+    if (!text || quickBusy) return;
+    setQuickBusy(true);
+    setQuickError(null);
+    try {
+      applyParsed(await aiParseEntry(text));
+    } catch (err) {
+      setQuickError(err instanceof AiError ? err.message : 'Could not parse that.');
+    } finally {
+      setQuickBusy(false);
+    }
+  };
+
+  const runPhotoParse = async (source: ScanSource) => {
+    setQuickBusy(true);
+    setQuickError(null);
+    try {
+      const base64 = await pickImageBase64(source);
+      if (!base64) return;
+      applyParsed(await aiParseImage(base64));
+    } catch (err) {
+      setQuickError(err instanceof AiError ? err.message : 'Could not read that image.');
+    } finally {
+      setQuickBusy(false);
+    }
+  };
+
+  const onParsePhoto = () => {
+    Alert.alert(AI_COPY.quickAdd.fromPhoto, AI_COPY.voice.rationaleBody, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Take photo', onPress: () => runPhotoParse('camera') },
+      { text: 'Choose from library', onPress: () => runPhotoParse('library') },
+    ]);
+  };
+
+  const onQuickMic = () => {
+    if (listening) {
+      void stopVoice();
+      setListening(false);
+      return;
+    }
+    if (!voiceOk.current) {
+      Alert.alert(AI_COPY.voice.rationaleTitle, AI_COPY.assistant.micHint);
+      return;
+    }
+    Alert.alert(AI_COPY.voice.rationaleTitle, AI_COPY.voice.rationaleBody, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Start',
+        onPress: async () => {
+          const ok = await startVoice({
+            onPartial: setQuickText,
+            onResult: setQuickText,
+            onError: () => setListening(false),
+            onEnd: () => setListening(false),
+          });
+          setListening(ok);
+        },
+      },
+    ]);
+  };
 
   const validate = (): boolean => {
     const next: Errors = {};
@@ -255,6 +369,54 @@ export default function AddEditItemModal() {
       <ModalHeader title={isEdit ? 'Edit Item' : 'Add Item'} onClose={() => router.back()} />
 
       <View style={styles.body}>
+        {aiEnabled && !isEdit ? (
+          <Section title={AI_COPY.quickAdd.toggle}>
+            <View style={styles.quickRow}>
+              <TouchableOpacity
+                onPress={onQuickMic}
+                style={[styles.quickMic, listening && styles.quickMicActive]}
+                accessibilityRole="button"
+                accessibilityLabel="Voice input"
+              >
+                <Ionicons
+                  name={listening ? 'mic' : 'mic-outline'}
+                  size={20}
+                  color={listening ? theme.colors.text.inverse : theme.colors.accent}
+                />
+              </TouchableOpacity>
+              <View style={styles.quickInput}>
+                <Input
+                  placeholder={AI_COPY.quickAdd.textPlaceholder}
+                  value={quickText}
+                  onChangeText={setQuickText}
+                  onSubmitEditing={onParseText}
+                />
+              </View>
+              <Button
+                label={quickBusy ? AI_COPY.quickAdd.parsing : AI_COPY.quickAdd.parse}
+                onPress={onParseText}
+                loading={quickBusy}
+                size="sm"
+              />
+            </View>
+            <Button
+              label={AI_COPY.quickAdd.fromPhoto}
+              variant="ghost"
+              size="sm"
+              onPress={onParsePhoto}
+            />
+            {quickError ? (
+              <AppText size="xs" color={theme.colors.status.danger}>
+                {quickError}
+              </AppText>
+            ) : (
+              <AppText size="xs" color={theme.colors.text.tertiary}>
+                {AI_COPY.quickAdd.filledNote}
+              </AppText>
+            )}
+          </Section>
+        ) : null}
+
         <Section title="Basics">
           <Input
             label="Name"
@@ -644,5 +806,24 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   submit: {
     marginTop: theme.spacing.sm,
+  },
+  quickRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  quickInput: {
+    flex: 1,
+  },
+  quickMic: {
+    width: 44,
+    height: 44,
+    borderRadius: theme.radius.full,
+    backgroundColor: theme.colors.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickMicActive: {
+    backgroundColor: theme.colors.accent,
   },
 });

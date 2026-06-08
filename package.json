@@ -12,6 +12,7 @@
     "@expo-google-fonts/inter": "^0.2.3",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-community/datetimepicker": "8.4.4",
+    "@react-native-voice/voice": "^3.2.4",
     "babel-preset-expo": "~54.0.10",
     "expo": "^54.0.35",
     "expo-constants": "~18.0.13",

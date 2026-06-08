@@ -13,6 +13,9 @@ import { exportData, deleteAllData } from '@/services/data-export';
 import { CURRENCY_SYMBOLS } from '@/constants/config';
 import { useSecurityStore, TIMEOUT_OPTIONS, TimeoutMinutes } from '@/stores/securityStore';
 import { usePreferencesStore } from '@/stores/preferencesStore';
+import { useAiStore } from '@/stores/aiStore';
+import { refreshQuota, clearAiCache } from '@/services/ai';
+import { AI_COPY } from '@/lib/copy/ai';
 import { useItemsStore } from '@/stores/itemsStore';
 import { useRecommendationsStore } from '@/stores/recommendationsStore';
 import { usePaymentMethodsStore } from '@/stores/paymentMethodsStore';
@@ -42,6 +45,9 @@ export default function SettingsScreen() {
   const themeMode = useThemeStore((s) => s.mode);
   const setThemeMode = useThemeStore((s) => s.setMode);
   const prefs = usePreferencesStore();
+  const aiEnabled = useAiStore((s) => s.enabled);
+  const setAiEnabled = useAiStore((s) => s.setEnabled);
+  const aiQuota = useAiStore((s) => s.quota);
   const refreshItems = useItemsStore((s) => s.refresh);
   const refreshRecs = useRecommendationsStore((s) => s.refresh);
   const refreshMethods = usePaymentMethodsStore((s) => s.refresh);
@@ -55,7 +61,13 @@ export default function SettingsScreen() {
     security.refresh();
     prefs.refresh();
     canAuthenticate().then(setAuthAvailable);
+    if (useAiStore.getState().enabled) void refreshQuota();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onToggleAi = async (value: boolean) => {
+    await setAiEnabled(value);
+    if (value) void refreshQuota();
+  };
 
   const shiftHour = (key: 'quietStartHour' | 'quietEndHour', delta: number) => {
     const current = key === 'quietStartHour' ? prefs.quietStartHour : prefs.quietEndHour;
@@ -268,6 +280,65 @@ export default function SettingsScreen() {
                 );
               })}
             </View>
+          </Card>
+        </Section>
+
+        <Section title={AI_COPY.settings.title}>
+          <Card style={styles.card}>
+            <ToggleField
+              label={AI_COPY.settings.toggle}
+              hint={AI_COPY.settings.subtitle}
+              value={aiEnabled}
+              onChange={onToggleAi}
+            />
+            {aiEnabled ? (
+              <>
+                <View style={styles.divider} />
+                <View style={styles.dataRow}>
+                  <View style={styles.flex1}>
+                    <AppText weight="medium">{AI_COPY.settings.quotaLabel}</AppText>
+                    <AppText size="xs" color={theme.colors.text.tertiary}>
+                      {aiQuota
+                        ? aiQuota.paid
+                          ? 'Unlimited'
+                          : `${aiQuota.used} of ${aiQuota.limit} used`
+                        : 'Checking…'}
+                    </AppText>
+                  </View>
+                  {aiQuota && !aiQuota.paid ? (
+                    <View style={styles.meterTrack}>
+                      <View
+                        style={[
+                          styles.meterFill,
+                          {
+                            width: `${Math.min(100, aiQuota.limit > 0 ? (aiQuota.used / aiQuota.limit) * 100 : 0)}%`,
+                          },
+                        ]}
+                      />
+                    </View>
+                  ) : null}
+                </View>
+                {__DEV__ ? (
+                  <>
+                    <View style={styles.divider} />
+                    <View style={styles.dataRow}>
+                      <AppText weight="medium" style={styles.flex1} color={theme.colors.text.tertiary}>
+                        {AI_COPY.settings.resetDev}
+                      </AppText>
+                      <Button
+                        label="Reset"
+                        variant="ghost"
+                        size="sm"
+                        onPress={() => {
+                          clearAiCache();
+                          void refreshQuota();
+                        }}
+                      />
+                    </View>
+                  </>
+                ) : null}
+              </>
+            ) : null}
           </Card>
         </Section>
 
@@ -528,5 +599,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   stepperLabel: {
     minWidth: 44,
     textAlign: 'center',
+  },
+  meterTrack: {
+    width: 90,
+    height: 8,
+    borderRadius: theme.radius.full,
+    backgroundColor: theme.colors.surfaceAlt,
+    overflow: 'hidden',
+  },
+  meterFill: {
+    height: 8,
+    borderRadius: theme.radius.full,
+    backgroundColor: theme.colors.accent,
   },
 });

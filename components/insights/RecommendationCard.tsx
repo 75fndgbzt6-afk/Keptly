@@ -13,6 +13,8 @@ interface RecommendationCardProps {
   itemName: string;
   onApply: () => void;
   onDismiss: () => void;
+  /** AI-narrated body that replaces the deterministic reason when present. */
+  narration?: string | null;
 }
 
 export function RecommendationCard({
@@ -20,6 +22,7 @@ export function RecommendationCard({
   itemName,
   onApply,
   onDismiss,
+  narration,
 }: RecommendationCardProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -53,7 +56,7 @@ export function RecommendationCard({
       </View>
 
       <AppText size="sm" color={theme.colors.text.secondary} style={styles.reason}>
-        {recommendation.reason}
+        {narration ?? recommendation.reason}
       </AppText>
 
       <View style={styles.actions}>

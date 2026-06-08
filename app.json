@@ -12,10 +12,15 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.renewly.app"
+      "bundleIdentifier": "com.renewly.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Renewly uses the microphone to transcribe what you say into the assistant. Audio stays on your device and is never recorded or uploaded.",
+        "NSSpeechRecognitionUsageDescription": "Renewly transcribes your speech on-device to fill the assistant's text field. No audio leaves your device."
+      }
     },
     "android": {
       "package": "com.renewly.app",
+      "permissions": ["android.permission.RECORD_AUDIO"],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F7F6F3"

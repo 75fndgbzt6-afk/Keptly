@@ -20,6 +20,8 @@ export const SecureKeys = {
   themeMode: 'renewly.theme.mode',
   /** Onboarding completion flag ('1' once finished). */
   onboardingComplete: 'renewly.onboarding.complete',
+  /** Anonymous AI device id (UUID), generated after onboarding. Never shown in UI. */
+  aiDeviceId: 'renewly.ai.deviceId',
   /** Profile + notification preferences (JSON). */
   preferences: 'renewly.preferences',
   /** The full government-ID number behind an item's masked display, keyed by item id. */

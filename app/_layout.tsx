@@ -18,6 +18,7 @@ import { useRecommendationsStore } from '@/stores/recommendationsStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import { usePreferencesStore } from '@/stores/preferencesStore';
+import { useAiStore } from '@/stores/aiStore';
 import { AppLockProvider } from '@/components/security';
 import { ThemeProvider, useTheme } from '@/components/theme';
 import { safeWarn } from '@/lib/safe-log';
@@ -46,6 +47,7 @@ export default function RootLayout() {
         await useOnboardingStore.getState().refresh();
         await initDatabase();
         await usePreferencesStore.getState().refresh();
+        await useAiStore.getState().refresh();
         await initNotifications();
         await reconcile();
         await useRecommendationsStore.getState().refresh();

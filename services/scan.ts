@@ -66,3 +66,24 @@ export async function captureScan(
 export async function deleteScan(itemId: string): Promise<void> {
   await FileSystem.deleteAsync(scanPathFor(itemId), { idempotent: true });
 }
+
+/**
+ * Pick an image and return its base64 (for AI parsing only — not persisted).
+ * Returns null on cancel / permission denied.
+ */
+export async function pickImageBase64(source: ScanSource): Promise<string | null> {
+  if (!(await ensurePermission(source))) return null;
+  const options: ImagePicker.ImagePickerOptions = {
+    mediaTypes: ['images'],
+    quality: 0.5,
+    allowsEditing: false,
+    exif: false,
+    base64: true,
+  };
+  const result =
+    source === 'camera'
+      ? await ImagePicker.launchCameraAsync(options)
+      : await ImagePicker.launchImageLibraryAsync(options);
+  if (result.canceled || result.assets.length === 0) return null;
+  return result.assets[0].base64 ?? null;
+}
