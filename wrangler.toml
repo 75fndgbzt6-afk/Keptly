@@ -19,7 +19,7 @@ id = "REPLACE_WITH_CACHE_KV_ID"
 # --- Non-secret config ---
 [vars]
 MONTHLY_QUOTA = "50"
-MODEL_HAIKU = "claude-haiku-4-5"
+MODEL_HAIKU = "claude-haiku-4-5-20251001"
 MODEL_SONNET = "claude-sonnet-4-6"
 ALLOWED_ORIGIN = "*"
 
