@@ -10,11 +10,11 @@ compatibility_flags = ["nodejs_compat"]
 # then paste the returned ids below.
 [[kv_namespaces]]
 binding = "QUOTA"
-id = "REPLACE_WITH_QUOTA_KV_ID"
+id = "0de372cca6f44a5dab3ea970e6899408"
 
 [[kv_namespaces]]
 binding = "CACHE"
-id = "REPLACE_WITH_CACHE_KV_ID"
+id = "42f33a5e6b41446485036efd30881184"
 
 # --- Non-secret config ---
 [vars]
