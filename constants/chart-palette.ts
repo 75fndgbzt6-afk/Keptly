@@ -16,9 +16,9 @@ export type ChartColor = (typeof CHART_PALETTE)[number];
  * the Move / Exercise / Stand rings. Fixed so rings look identical in both modes.
  */
 export const RING_COLORS = {
-  red: '#FF375F',
-  green: '#30D158',
-  blue: '#32ADE6',
+  red: '#FF2D55',
+  green: '#00E676',
+  blue: '#00B4FF',
 } as const;
 
 /** Color for a series index, cycling through the palette. */

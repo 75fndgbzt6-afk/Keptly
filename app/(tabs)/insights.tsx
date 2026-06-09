@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Badge, Button, EmptyState } from '@/components/ui';
 import { RecommendationCard } from '@/components/insights';
-import { Donut, AreaChart, StackedAreaChart } from '@/components/charts';
+import { Donut, AreaChart, StackedAreaChart, ChartModal } from '@/components/charts';
 import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
 import { chartColorAt } from '@/constants/chart-palette';
@@ -18,9 +19,11 @@ import { getCostPerUseMap, CostPerUse } from '@/services/value-engine';
 import { applyRecommendation, dismissRecommendation } from '@/services/recommendation-engine';
 import { narrateRecommendation } from '@/services/ai';
 import { seedSampleData } from '@/services/dev-seed';
+import { hapticSelection } from '@/lib/haptics';
 import { useItemsStore } from '@/stores/itemsStore';
 import { useRecommendationsStore } from '@/stores/recommendationsStore';
 import { useAiStore } from '@/stores/aiStore';
+import { useUiStore } from '@/stores/uiStore';
 
 interface LeaderEntry {
   item: Item;
@@ -31,6 +34,7 @@ export default function InsightsScreen() {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
+  const navigation = useNavigation();
   const items = useItemsStore((s) => s.items);
   const refreshItems = useItemsStore((s) => s.refresh);
   const recommendations = useRecommendationsStore((s) => s.recommendations);
@@ -41,6 +45,33 @@ export default function InsightsScreen() {
   const [seeding, setSeeding] = useState(false);
   const [narrations, setNarrations] = useState<Record<string, string>>({});
   const [selectedDonutSlice, setSelectedDonutSlice] = useState<number | null>(null);
+  const [selectedStackSeries, setSelectedStackSeries] = useState<number | null>(null);
+  const [trendModalOpen, setTrendModalOpen] = useState(false);
+  const [stackModalOpen, setStackModalOpen] = useState(false);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
+
+  // Lock the page scroll AND the global tab-swipe while a chart is being scrubbed.
+  const beginChart = useCallback(() => {
+    setScrollEnabled(false);
+    useUiStore.getState().beginInteraction();
+  }, []);
+  const endChart = useCallback(() => {
+    setScrollEnabled(true);
+    useUiStore.getState().endInteraction();
+  }, []);
+
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollYRef = useRef(0);
+
+  useEffect(() => {
+    return navigation.addListener('tabPress' as never, () => {
+      if (!navigation.isFocused()) return;
+      if (scrollYRef.current > 8) {
+        hapticSelection();
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      }
+    });
+  }, [navigation]);
 
   const reload = useCallback(async () => {
     await refreshItems();
@@ -62,10 +93,13 @@ export default function InsightsScreen() {
     () => spendByCategory.reduce((s, c) => s + c.monthlyAmount, 0),
     [spendByCategory],
   );
-  const donutData = useMemo(
-    () => spendByCategory.map((c, i) => ({ ...c, color: chartColorAt(i) })),
-    [spendByCategory],
-  );
+  const donutData = useMemo(() => {
+    const withColor = spendByCategory.map((c, i) => ({ ...c, color: chartColorAt(i) }));
+    const total = withColor.reduce((s, c) => s + c.monthlyAmount, 0);
+    // Drop categories below 1 % of total spend — they'd render as near-invisible
+    // arcs that produce SVG artefacts and confuse the hit test.
+    return total > 0 ? withColor.filter((c) => c.monthlyAmount / total >= 0.01) : withColor;
+  }, [spendByCategory]);
   const stackSeries = useMemo(
     () => categoryTrend.series.map((s, i) => ({ color: chartColorAt(i), values: s.values })),
     [categoryTrend],
@@ -92,19 +126,24 @@ export default function InsightsScreen() {
     [recommendations],
   );
 
-  // When AI is on, replace deterministic copy with warm narration (cached per id).
-  // Falls back silently to the Phase 4 copy when off / failed / quota-exhausted.
+  // When AI is on, auto-narrate only the top 3 recommendations to preserve quota.
+  // The rest show deterministic copy and can be narrated on demand in the future.
+  // Falls back silently when off / failed / quota-exhausted.
+  const AUTO_NARRATE_LIMIT = 3;
   useEffect(() => {
     if (!aiEnabled || orderedRecs.length === 0) return;
     let active = true;
     (async () => {
+      let fetched = 0;
       for (const rec of orderedRecs) {
-        if (narrations[rec.id]) continue;
+        if (fetched >= AUTO_NARRATE_LIMIT) break;
+        if (narrations[rec.id]) { fetched++; continue; }
         try {
           const text = await narrateRecommendation(rec);
           if (active) setNarrations((prev) => ({ ...prev, [rec.id]: text }));
+          fetched++;
         } catch {
-          // keep deterministic reason
+          // keep deterministic reason; don't count towards limit
         }
       }
     })();
@@ -174,7 +213,14 @@ export default function InsightsScreen() {
           ) : null}
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          ref={scrollRef}
+          scrollEnabled={scrollEnabled}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+          scrollEventThrottle={100}
+        >
           {donutData.length > 0 ? (
             <Section title="Spend by category">
               <Card style={styles.donutCard}>
@@ -184,6 +230,8 @@ export default function InsightsScreen() {
                   thickness={20}
                   selectedIndex={selectedDonutSlice}
                   onSelect={setSelectedDonutSlice}
+                  onInteractionStart={beginChart}
+                  onInteractionEnd={endChart}
                 >
                   {selectedDonutSlice != null && donutData[selectedDonutSlice] ? (
                     <>
@@ -268,9 +316,28 @@ export default function InsightsScreen() {
           ) : null}
 
           {trend.dataMonths >= 2 ? (
-            <Section title="Monthly trend">
+            <Section
+              title="Monthly trend"
+              action={
+                <TouchableOpacity
+                  onPress={() => setTrendModalOpen(true)}
+                  style={styles.expandBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Expand chart"
+                  hitSlop={8}
+                >
+                  <Ionicons name="expand-outline" size={16} color={theme.colors.text.tertiary} />
+                </TouchableOpacity>
+              }
+            >
               <Card>
-                <AreaChart data={trend.points} color={theme.colors.accent} />
+                <AreaChart
+                  data={trend.points}
+                  color={theme.colors.accent}
+                  labels={categoryTrend.labels}
+                  onInteractionStart={beginChart}
+                  onInteractionEnd={endChart}
+                />
                 <AppText size="xs" color={theme.colors.text.tertiary} style={styles.trendCaption}>
                   Estimated monthly spend over the last {trend.points.length} months.
                 </AppText>
@@ -279,22 +346,101 @@ export default function InsightsScreen() {
           ) : null}
 
           {trend.dataMonths >= 2 && stackSeries.length > 0 ? (
-            <Section title="Spend mix (6 months)">
+            <Section
+              title="Spend mix (6 months)"
+              action={
+                <TouchableOpacity
+                  onPress={() => setStackModalOpen(true)}
+                  style={styles.expandBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Expand chart"
+                  hitSlop={8}
+                >
+                  <Ionicons name="expand-outline" size={16} color={theme.colors.text.tertiary} />
+                </TouchableOpacity>
+              }
+            >
               <Card>
-                <StackedAreaChart series={stackSeries} />
+                <StackedAreaChart
+                  series={stackSeries}
+                  seriesLabels={categoryTrend.series.map((s) => s.category)}
+                  labels={categoryTrend.labels}
+                  selectedSeries={selectedStackSeries}
+                  onSelectSeries={setSelectedStackSeries}
+                  onInteractionStart={beginChart}
+                  onInteractionEnd={endChart}
+                />
                 <View style={styles.stackLegend}>
                   {categoryTrend.series.map((s, i) => (
-                    <View key={s.category} style={styles.stackLegendItem}>
+                    <TouchableOpacity
+                      key={s.category}
+                      style={[
+                        styles.stackLegendItem,
+                        selectedStackSeries !== null && selectedStackSeries !== i && styles.legendDim,
+                      ]}
+                      onPress={() => setSelectedStackSeries(selectedStackSeries === i ? null : i)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                    >
                       <View style={[styles.dot, { backgroundColor: chartColorAt(i) }]} />
                       <AppText size="xs" color={theme.colors.text.secondary} numberOfLines={1}>
                         {s.category}
                       </AppText>
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               </Card>
             </Section>
           ) : null}
+
+          {/* Monthly trend full-screen modal */}
+          <ChartModal
+            visible={trendModalOpen}
+            title="Monthly trend"
+            onClose={() => setTrendModalOpen(false)}
+          >
+            <AreaChart
+              data={trend.points}
+              color={theme.colors.accent}
+              height={200}
+              labels={categoryTrend.labels}
+            />
+          </ChartModal>
+
+          {/* Spend mix full-screen modal */}
+          <ChartModal
+            visible={stackModalOpen}
+            title="Spend mix"
+            onClose={() => setStackModalOpen(false)}
+          >
+            <StackedAreaChart
+              series={stackSeries}
+              seriesLabels={categoryTrend.series.map((s) => s.category)}
+              labels={categoryTrend.labels}
+              height={200}
+              selectedSeries={selectedStackSeries}
+              onSelectSeries={setSelectedStackSeries}
+            />
+            <View style={styles.stackLegend}>
+              {categoryTrend.series.map((s, i) => (
+                <TouchableOpacity
+                  key={s.category}
+                  style={[
+                    styles.stackLegendItem,
+                    selectedStackSeries !== null && selectedStackSeries !== i && styles.legendDim,
+                  ]}
+                  onPress={() => setSelectedStackSeries(selectedStackSeries === i ? null : i)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                >
+                  <View style={[styles.dot, { backgroundColor: chartColorAt(i) }]} />
+                  <AppText size="xs" color={theme.colors.text.secondary} numberOfLines={1}>
+                    {s.category}
+                  </AppText>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ChartModal>
 
           {__DEV__ ? (
             <View style={styles.devButton}>
@@ -313,14 +459,25 @@ export default function InsightsScreen() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.section}>
-      <AppText size="sm" weight="semibold" color={theme.colors.text.tertiary}>
-        {title.toUpperCase()}
-      </AppText>
+      <View style={styles.sectionHeader}>
+        <AppText size="sm" weight="semibold" color={theme.colors.text.tertiary}>
+          {title.toUpperCase()}
+        </AppText>
+        {action ?? null}
+      </View>
       <View style={styles.sectionBody}>{children}</View>
     </View>
   );
@@ -377,8 +534,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   section: {
     gap: theme.spacing.sm,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   sectionBody: {
     gap: theme.spacing.sm,
+  },
+  expandBtn: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   listCard: {
     paddingVertical: 0,
@@ -421,6 +589,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.xs,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    borderRadius: theme.radius.sm,
   },
   leaderRow: {
     flexDirection: 'row',

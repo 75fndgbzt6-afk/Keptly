@@ -27,7 +27,7 @@ import {
   OTHER_DOC_TYPE,
 } from '@/lib/options';
 import { documentMask } from '@/lib/masking';
-import { todayISO } from '@/lib/date';
+import { todayISO, addDays, fromISODate, toISODate } from '@/lib/date';
 import { createItem, getItem, updateItem } from '@/db/items';
 import { getFullId, setFullId, clearFullId } from '@/services/vault';
 import { useItemsStore } from '@/stores/itemsStore';
@@ -46,6 +46,31 @@ const DOC_TYPE_OPTIONS: Option<string>[] = DOC_TYPES.map((d) => ({ label: d, val
 /** Empty details for any category string (custom categories carry no details). */
 function detailsForCategory(category: string): ItemDetails {
   return isBuiltInCategory(category) ? emptyDetailsFor(category) : { kind: 'none' };
+}
+
+/**
+ * Infer how long a free trial runs from the parsed text, then return the trial
+ * END date as ISO. Reads any explicit duration the user wrote ("14-day trial",
+ * "one month free", "trial for 2 weeks"); falls back to the most common 7-day
+ * trial when nothing is stated. Counts from the start date (or today).
+ */
+function inferTrialEndDate(entry: ParsedEntry): string {
+  const haystack = `${entry.name ?? ''} ${entry.notes ?? ''}`.toLowerCase();
+  let days = 7; // sensible default — the overwhelmingly common free-trial length
+
+  const num = (m: RegExpMatchArray | null) => (m ? parseInt(m[1], 10) : NaN);
+  const dayM = haystack.match(/(\d+)\s*[- ]?\s*day/);
+  const weekM = haystack.match(/(\d+)\s*[- ]?\s*week/);
+  const monthM = haystack.match(/(\d+)\s*[- ]?\s*month/);
+
+  if (!Number.isNaN(num(dayM))) days = num(dayM);
+  else if (!Number.isNaN(num(weekM))) days = num(weekM) * 7;
+  else if (!Number.isNaN(num(monthM))) days = num(monthM) * 30;
+  else if (/\bweek\b/.test(haystack)) days = 7;
+  else if (/\bmonth\b/.test(haystack)) days = 30;
+
+  const base = entry.startDate ? fromISODate(entry.startDate) : new Date();
+  return toISODate(addDays(base, days));
 }
 
 interface FormState {
@@ -189,6 +214,12 @@ export default function AddEditItemModal() {
   const applyParsed = useCallback((entry: ParsedEntry) => {
     setForm((prev) => {
       const category = entry.category || prev.category;
+      // When the AI flags a free trial, auto-fill the trial end date (inferred
+      // from any stated duration, else 7 days) so the user can confirm-and-save
+      // without hunting for a date. Keep an existing date if one is already set.
+      const trialEndDate = entry.isFreeTrial
+        ? prev.trialEndDate ?? inferTrialEndDate(entry)
+        : null;
       return {
         ...prev,
         name: entry.name || prev.name,
@@ -196,7 +227,9 @@ export default function AddEditItemModal() {
         amount: entry.amount != null ? String(entry.amount) : prev.amount,
         billingCycle: entry.billingCycle,
         isFreeTrial: entry.isFreeTrial,
-        trialEndDate: prev.trialEndDate,
+        trialEndDate,
+        // A trial that auto-renews is the norm — surface the reminder by default.
+        autoRenew: entry.isFreeTrial ? true : prev.autoRenew,
         startDate: entry.startDate || prev.startDate,
         notes: entry.notes || prev.notes,
         details: detailsForCategory(category),

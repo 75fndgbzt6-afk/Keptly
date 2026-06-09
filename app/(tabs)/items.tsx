@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   FlatList,
@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { hapticSelection } from '@/lib/haptics';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Input, EmptyState, SkeletonList, Button } from '@/components/ui';
 import { ItemRow, SummaryRings, useItemContextMenu, RingDatum } from '@/components/items';
@@ -23,6 +24,7 @@ import { getMonthlyTotal, getUpcomingRenewals, getActiveAlerts } from '@/service
 import { useItemsStore } from '@/stores/itemsStore';
 import { useCategoriesStore } from '@/stores/categoriesStore';
 import { usePreferencesStore } from '@/stores/preferencesStore';
+import { useUiStore } from '@/stores/uiStore';
 
 type ChipValue = string; // 'all' | category name
 
@@ -62,9 +64,29 @@ export default function ItemsScreen() {
   const updatePrefs = usePreferencesStore((s) => s.update);
   const onLongPress = useItemContextMenu();
   const [ringsOpen, setRingsOpen] = useState(false);
+  const [listScrollEnabled, setListScrollEnabled] = useState(true);
+  const listRef = useRef<FlatList>(null);
+  const scrollYRef = useRef(0);
+  const chipRef = useRef<ChipValue>('all');
+  const navigation = useNavigation();
+
+  // Tab-press: scroll-to-top first; if already at top reset to "All".
+  useEffect(() => {
+    return navigation.addListener('tabPress' as never, () => {
+      if (!navigation.isFocused()) return;
+      if (scrollYRef.current > 8) {
+        hapticSelection();
+        listRef.current?.scrollToOffset({ offset: 0, animated: true });
+      } else if (chipRef.current !== 'all') {
+        hapticSelection();
+        setChip('all');
+      }
+    });
+  }, [navigation]);
 
   const [query, setQuery] = useState('');
   const [chip, setChip] = useState<ChipValue>('all');
+  chipRef.current = chip; // keep ref in sync every render
   const [cpuMap, setCpuMap] = useState<Map<string, CostPerUse>>(new Map());
   const [statsMap, setStatsMap] = useState<Map<string, UsageStat>>(new Map());
   const [overdueCount, setOverdueCount] = useState(0);
@@ -123,8 +145,8 @@ export default function ItemsScreen() {
     const handledFraction = upcoming === 0 ? 1 : Math.max(0, (upcoming - overdueCount) / upcoming);
 
     return [
-      { fraction: usedFraction, color: RING_COLORS.green, icon: 'pulse-outline', label: 'Used this month', caption: `${usedCount} of ${tracked.length} tracked` },
       { fraction: spendFraction, color: RING_COLORS.red, icon: 'wallet-outline', label: 'Spend vs budget', caption: `${formatCurrency(monthly)} of ${formatCurrency(budget)}` },
+      { fraction: usedFraction, color: RING_COLORS.green, icon: 'pulse-outline', label: 'Used this month', caption: `${usedCount} of ${tracked.length} tracked` },
       { fraction: handledFraction, color: RING_COLORS.blue, icon: 'refresh-outline', label: 'Renewals handled', caption: overdueCount > 0 ? `${overdueCount} need attention` : 'All on track' },
     ];
   }, [statsMap, items, monthlyBudget, usageGoalPct, overdueCount]);
@@ -181,7 +203,7 @@ export default function ItemsScreen() {
                   <TouchableOpacity
                     key={c}
                     activeOpacity={0.7}
-                    onPress={() => setChip(c)}
+                    onPress={() => { hapticSelection(); setChip(c); }}
                     style={[styles.chip, active && styles.chipActive]}
                   >
                     <AppText
@@ -220,12 +242,21 @@ export default function ItemsScreen() {
             />
           ) : (
             <FlatList
+              ref={listRef}
               data={visible}
               keyExtractor={(item) => item.id}
+              scrollEnabled={listScrollEnabled}
+              onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+              scrollEventThrottle={100}
               ListHeaderComponent={
                 chip === 'all'
                   ? <SummaryRings rings={rings} onExpand={() => setRingsOpen(true)} />
-                  : <CategoryHeader items={visible} category={chip} />
+                  : <CategoryHeader
+                      items={visible}
+                      category={chip}
+                      onInteractionStart={() => { setListScrollEnabled(false); useUiStore.getState().beginInteraction(); }}
+                      onInteractionEnd={() => { setListScrollEnabled(true); useUiStore.getState().endInteraction(); }}
+                    />
               }
               renderItem={({ item }) => {
                 const stat = statsMap.get(item.id);
@@ -359,7 +390,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
 
 // ─── Category spend header (shown instead of SummaryRings when a chip is active) ─
 
-function CategoryHeader({ items, category }: { items: Item[]; category: string }) {
+function CategoryHeader({
+  items,
+  category,
+  onInteractionStart,
+  onInteractionEnd,
+}: {
+  items: Item[];
+  category: string;
+  onInteractionStart?: () => void;
+  onInteractionEnd?: () => void;
+}) {
   const theme = useTheme();
   const styles = useThemedStyles(makeCatStyles);
   const [selectedSlice, setSelectedSlice] = useState<number | null>(null);
@@ -389,6 +430,8 @@ function CategoryHeader({ items, category }: { items: Item[]; category: string }
           thickness={13}
           selectedIndex={selectedSlice}
           onSelect={setSelectedSlice}
+          onInteractionStart={onInteractionStart}
+          onInteractionEnd={onInteractionEnd}
         >
           {selectedSlice != null && slices[selectedSlice] ? (
             <>

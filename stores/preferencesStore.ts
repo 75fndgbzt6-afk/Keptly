@@ -18,6 +18,8 @@ export interface Preferences {
   monthlyBudget: number;
   /** Target % of tracked items used per month (the "used" ring fills to 100% at goal). */
   usageGoalPct: number;
+  /** Whether the app fires haptic feedback on interactions. */
+  hapticsEnabled: boolean;
 }
 
 const DEFAULTS: Preferences = {
@@ -29,6 +31,7 @@ const DEFAULTS: Preferences = {
   defaultLeadDays: [30, 14, 7, 1],
   monthlyBudget: 0,
   usageGoalPct: 100,
+  hapticsEnabled: true,
 };
 
 function parse(raw: string | null): Preferences {
@@ -49,6 +52,7 @@ function parse(raw: string | null): Preferences {
         : DEFAULTS.defaultLeadDays,
       monthlyBudget: typeof v.monthlyBudget === 'number' ? v.monthlyBudget : DEFAULTS.monthlyBudget,
       usageGoalPct: typeof v.usageGoalPct === 'number' ? v.usageGoalPct : DEFAULTS.usageGoalPct,
+      hapticsEnabled: typeof v.hapticsEnabled === 'boolean' ? v.hapticsEnabled : DEFAULTS.hapticsEnabled,
     };
   } catch {
     return DEFAULTS;
@@ -77,6 +81,7 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
       defaultLeadDays: get().defaultLeadDays,
       monthlyBudget: get().monthlyBudget,
       usageGoalPct: get().usageGoalPct,
+      hapticsEnabled: get().hapticsEnabled,
       ...patch,
     };
     set(next);

@@ -255,6 +255,13 @@ export default function SettingsScreen() {
 
         <Section title="Appearance">
           <Card style={styles.card}>
+            <ToggleField
+              label="Haptic feedback"
+              hint="Vibrate when selecting slices, chips, and sending messages."
+              value={prefs.hapticsEnabled}
+              onChange={(v) => prefs.update({ hapticsEnabled: v })}
+            />
+            <View style={styles.divider} />
             <AppText weight="medium">Theme</AppText>
             <View style={styles.segments}>
               {APPEARANCE_OPTIONS.map((opt) => {

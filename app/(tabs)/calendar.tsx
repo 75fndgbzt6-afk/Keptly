@@ -1,5 +1,6 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, EmptyState } from '@/components/ui';
@@ -11,6 +12,7 @@ import { iconForCategory } from '@/lib/category';
 import { formatCurrency } from '@/lib/currency';
 import { formatDate, todayISO } from '@/lib/date';
 import { urgencyColor, urgencyForDate } from '@/lib/urgency';
+import { hapticSelection } from '@/lib/haptics';
 import { useItemContextMenu } from '@/components/items';
 import { useItemsStore } from '@/stores/itemsStore';
 
@@ -45,10 +47,28 @@ export default function CalendarScreen() {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
+  const navigation = useNavigation();
   const items = useItemsStore((s) => s.items);
   const refresh = useItemsStore((s) => s.refresh);
   const onLongPress = useItemContextMenu();
   const [selected, setSelected] = useState<string>(todayISO());
+
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollYRef = useRef(0);
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+
+  useEffect(() => {
+    return navigation.addListener('tabPress' as never, () => {
+      if (!navigation.isFocused()) return;
+      const today = todayISO();
+      const scrolled = scrollYRef.current > 8;
+      const notToday = selectedRef.current !== today;
+      if (scrolled || notToday) hapticSelection();
+      if (scrolled) scrollRef.current?.scrollTo({ y: 0, animated: true });
+      if (notToday) setSelected(today);
+    });
+  }, [navigation]);
 
   useFocusEffect(
     useCallback(() => {
@@ -85,7 +105,13 @@ export default function CalendarScreen() {
           message="Upcoming renewals, due dates, and expiries will appear here."
         />
       ) : (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+          scrollEventThrottle={100}
+        >
           <Card padded={false} style={styles.calendarCard}>
             <MonthCalendar
               events={dotEvents}

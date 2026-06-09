@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect, useRootNavigationState, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Badge, Button, EmptyState } from '@/components/ui';
@@ -25,14 +26,18 @@ import {
   ActiveAlert,
 } from '@/services/dashboard';
 import { handleAction } from '@/services/notifications';
+import { hapticSelection } from '@/lib/haptics';
+import { useItemContextMenu } from '@/components/items';
 import { useItemsStore } from '@/stores/itemsStore';
 import { useRecommendationsStore } from '@/stores/recommendationsStore';
 import { useNotificationsStore } from '@/stores/notificationsStore';
+import { useUiStore } from '@/stores/uiStore';
 
 export default function HomeScreen() {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
+  const navigation = useNavigation();
   const navReady = !!useRootNavigationState()?.key;
   const items = useItemsStore((s) => s.items);
   const refreshItems = useItemsStore((s) => s.refresh);
@@ -46,6 +51,21 @@ export default function HomeScreen() {
   const [alerts, setAlerts] = useState<ActiveAlert[]>([]);
   const [donutOpen, setDonutOpen] = useState(false);
   const [selectedSlice, setSelectedSlice] = useState<number | null>(null);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
+  const onLongPress = useItemContextMenu();
+
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollYRef = useRef(0);
+
+  useEffect(() => {
+    return navigation.addListener('tabPress' as never, () => {
+      if (!navigation.isFocused()) return;
+      if (scrollYRef.current > 8) {
+        hapticSelection();
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      }
+    });
+  }, [navigation]);
 
   useEffect(() => {
     refreshPermission();
@@ -130,9 +150,23 @@ export default function HomeScreen() {
           }}
         />
       ) : (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          ref={scrollRef}
+          scrollEnabled={scrollEnabled}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+          scrollEventThrottle={100}
+        >
           <Card style={styles.spendCard} elevated>
-            <View style={styles.flex1}>
+            {/* Tap the left info side to expand the donut modal */}
+            <TouchableOpacity
+              style={styles.flex1}
+              activeOpacity={0.7}
+              onPress={() => setDonutOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Spend by category, tap to enlarge"
+            >
               <AppText size="sm" color={theme.colors.text.secondary}>
                 Monthly spend
               </AppText>
@@ -142,23 +176,39 @@ export default function HomeScreen() {
               <AppText size="sm" color={theme.colors.text.tertiary}>
                 {formatCurrency(yearly)} per year
               </AppText>
-            </View>
+            </TouchableOpacity>
             {donutSlices.length > 0 ? (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setDonutOpen(true)}
-                accessibilityRole="button"
-                accessibilityLabel="Spend by category, tap to enlarge"
+              <Donut
+                data={donutSlices}
+                size={90}
+                thickness={13}
+                selectedIndex={selectedSlice}
+                onSelect={setSelectedSlice}
+                onInteractionStart={() => { setScrollEnabled(false); useUiStore.getState().beginInteraction(); }}
+                onInteractionEnd={() => { setScrollEnabled(true); useUiStore.getState().endInteraction(); }}
               >
-                <Donut data={donutSlices} size={90} thickness={13}>
-                  <AppText size="md" weight="bold">
-                    {topShare}%
-                  </AppText>
-                  <AppText size="xs" color={theme.colors.text.tertiary}>
-                    top
-                  </AppText>
-                </Donut>
-              </TouchableOpacity>
+                {selectedSlice != null && spendByCategory[selectedSlice] ? (
+                  <>
+                    <AppText size="xs" color={theme.colors.text.tertiary} numberOfLines={1} align="center">
+                      {spendByCategory[selectedSlice].category}
+                    </AppText>
+                    <AppText size="sm" weight="bold">
+                      {monthly > 0
+                        ? Math.round((spendByCategory[selectedSlice].monthlyAmount / monthly) * 100)
+                        : 0}%
+                    </AppText>
+                  </>
+                ) : (
+                  <>
+                    <AppText size="md" weight="bold">
+                      {topShare}%
+                    </AppText>
+                    <AppText size="xs" color={theme.colors.text.tertiary}>
+                      top
+                    </AppText>
+                  </>
+                )}
+              </Donut>
             ) : null}
           </Card>
 
@@ -266,7 +316,7 @@ export default function HomeScreen() {
           {alerts.length > 0 ? (
             <Section title="Needs attention">
               {alerts.map((alert) => (
-                <Card key={alert.reminder.id} style={styles.alertCard}>
+                <Card key={alert.reminder.id} style={styles.alertCard} onLongPress={alert.item ? () => onLongPress(alert.item!) : undefined}>
                   <View style={styles.alertHeading}>
                     <Ionicons name="alert-circle-outline" size={18} color={theme.colors.status.warning} />
                     <View style={styles.alertText}>
@@ -315,6 +365,7 @@ export default function HomeScreen() {
                     item={item}
                     last={i === upcoming.length - 1}
                     onPress={() => router.push(`/item/${item.id}`)}
+                    onLongPress={() => onLongPress(item)}
                   />
                 ))}
               </Card>
@@ -358,7 +409,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function UpcomingRow({ item, last, onPress }: { item: Item; last: boolean; onPress: () => void }) {
+function UpcomingRow({ item, last, onPress, onLongPress }: { item: Item; last: boolean; onPress: () => void; onLongPress?: () => void }) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const level = urgencyForDate(item.nextDate);
@@ -366,6 +417,7 @@ function UpcomingRow({ item, last, onPress }: { item: Item; last: boolean; onPre
     <TouchableOpacity
       activeOpacity={0.7}
       onPress={onPress}
+      onLongPress={onLongPress}
       style={[styles.upcomingRow, !last && styles.rowBorder]}
       accessibilityRole="button"
     >

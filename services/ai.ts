@@ -57,7 +57,7 @@ async function postJson<T>(path: string, body: unknown, timeoutMs: number): Prom
   try {
     res = await fetch(`${AI_API_BASE_URL}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'RenewlyApp/1.0' },
       body: JSON.stringify(body),
       signal: controller.signal,
     });
@@ -68,9 +68,17 @@ async function postJson<T>(path: string, body: unknown, timeoutMs: number): Prom
   clearTimeout(timer);
   if (res.status === 429) throw new AiError('quota');
   if (!res.ok) throw new AiError('unavailable');
-  // Any successful action may have changed the quota — refresh the meter quietly.
-  void refreshQuota();
-  return (await res.json()) as T;
+  const data = (await res.json()) as T & { quotaUsed?: number };
+  // Server embeds the exact post-increment count in every quota-consuming response.
+  // This is more precise than a separate GET (avoids KV eventual-consistency lag
+  // and never double-counts cached responses where quota was not consumed).
+  if (typeof data.quotaUsed === 'number') {
+    const current = useAiStore.getState().quota;
+    if (current) {
+      useAiStore.getState().setQuota({ ...current, used: data.quotaUsed });
+    }
+  }
+  return data;
 }
 
 const VALID_CYCLES = ['weekly', 'monthly', 'quarterly', 'yearly', 'one_time', 'variable'];
@@ -146,7 +154,9 @@ export async function getQuota(): Promise<QuotaStatus | null> {
   const { deviceId } = useAiStore.getState();
   if (!deviceId) return null;
   try {
-    const res = await fetch(`${AI_API_BASE_URL}/v1/quota?deviceId=${encodeURIComponent(deviceId)}`);
+    const res = await fetch(`${AI_API_BASE_URL}/v1/quota?deviceId=${encodeURIComponent(deviceId)}`, {
+      headers: { 'User-Agent': 'RenewlyApp/1.0' },
+    });
     if (!res.ok) return null;
     return (await res.json()) as QuotaStatus;
   } catch {
@@ -154,7 +164,9 @@ export async function getQuota(): Promise<QuotaStatus | null> {
   }
 }
 
-/** Refresh quota into the store (best-effort). */
+/** Refresh quota into the store (best-effort). Used on app open / settings mount.
+ * Real-time increments come from quotaUsed embedded in API responses, so this
+ * is only needed for initial load and manual refreshes. */
 export async function refreshQuota(): Promise<void> {
   const quota = await getQuota();
   if (quota) useAiStore.getState().setQuota(quota);
