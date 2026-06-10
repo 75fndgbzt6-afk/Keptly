@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Image, Alert, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Image, Alert, ActivityIndicator, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Badge, Button } from '@/components/ui';
@@ -24,6 +24,7 @@ import { REMINDER_TYPE_LABELS } from '@/lib/notification-copy';
 import { getItem, deleteItem, updateItem } from '@/db/items';
 import { scheduleTestNotification } from '@/services/notifications';
 import { getValueVerdict, ValueVerdict } from '@/services/value-engine';
+import { resolvePayUrl, resolveCancelUrl } from '@/lib/service-links';
 import { getFullId, purgeItemSecrets } from '@/services/vault';
 import { captureScan, deleteScan, ScanSource } from '@/services/scan';
 import { UsageSection, UsageHistoryCard } from '@/components/usage';
@@ -293,6 +294,10 @@ export default function ItemDetailScreen() {
 
         <RemindersCard item={item} onEdit={() => router.push({ pathname: '/(modal)/edit-reminders', params: { id: item.id } })} />
 
+        {QUICK_ACTION_CATEGORIES.includes(item.category) ? (
+          <QuickActionsCard item={item} />
+        ) : null}
+
         <View style={styles.actions}>
           <Button
             label="Edit"
@@ -513,6 +518,64 @@ function detailRows(details: ItemDetails): { label: string; value: string }[] {
   }
 }
 
+// Categories where cancel/pay actions make sense (not Warranty or documents).
+const QUICK_ACTION_CATEGORIES = [
+  'Streaming/OTT', 'Music', 'AI tools', 'Cloud/Software',
+  'Gym/Fitness', 'Utilities', 'Telecom', 'Insurance', 'Membership', 'Other',
+];
+
+function openUrl(url: string) {
+  // Normalise bare domains → full URL so Linking doesn't reject them.
+  const full = url.startsWith('http') ? url : `https://${url}`;
+  Linking.openURL(full).catch(() =>
+    Alert.alert('Could not open link', 'Check that the URL is correct in Edit.'),
+  );
+}
+
+function QuickActionsCard({ item }: { item: Item }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+
+  const handleCancel = () => openUrl(resolveCancelUrl(item));
+  const handlePay    = () => openUrl(resolvePayUrl(item));
+
+  return (
+    <Card style={styles.card}>
+      <TouchableOpacity
+        style={[styles.quickAction, styles.rowBorder]}
+        activeOpacity={0.7}
+        onPress={handleCancel}
+        accessibilityRole="button"
+        accessibilityLabel="Cancel subscription"
+      >
+        <View style={styles.quickActionLeft}>
+          <Ionicons name="close-circle-outline" size={20} color={theme.colors.status.danger} />
+          <AppText size="sm" weight="medium" color={theme.colors.status.danger}>
+            Cancel subscription
+          </AppText>
+        </View>
+        <Ionicons name="open-outline" size={16} color={theme.colors.text.tertiary} />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.quickAction}
+        activeOpacity={0.7}
+        onPress={handlePay}
+        accessibilityRole="button"
+        accessibilityLabel="Pay now"
+      >
+        <View style={styles.quickActionLeft}>
+          <Ionicons name="card-outline" size={20} color={theme.colors.accent} />
+          <AppText size="sm" weight="medium" color={theme.colors.accent}>
+            Pay now
+          </AppText>
+        </View>
+        <Ionicons name="open-outline" size={16} color={theme.colors.text.tertiary} />
+      </TouchableOpacity>
+    </Card>
+  );
+}
+
 function DetailRow({
   label,
   value,
@@ -629,6 +692,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   actions: {
     gap: theme.spacing.sm,
     marginTop: theme.spacing.sm,
+  },
+  quickAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.base,
+  },
+  quickActionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
   },
   securedHeading: {
     flexDirection: 'row',

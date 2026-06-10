@@ -1,101 +1,71 @@
-import React, { useMemo, useRef } from 'react';
+/**
+ * Tab layout — uses @react-navigation/material-top-tabs (backed by
+ * react-native-pager-view) so the swipe gesture and page transition run
+ * entirely on the UI/native thread. withLayoutContext wires this into
+ * expo-router so deep links, router.navigate(), and back behaviour all work.
+ *
+ * Gesture conflict strategy: PagerView's native recogniser only activates
+ * on a sufficiently horizontal touch; child ScrollViews / horizontal FlatLists
+ * win when the initial direction is horizontal inside them (iOS: UIScrollView
+ * responder chain; Android: ViewPager requestDisallowInterceptTouchEvent).
+ * The "items" category chip row and chart PanResponders call
+ * beginInteraction()/endInteraction() via uiStore so even the fallback
+ * gesture-handler swipe (if re-added) would be suppressed.
+ */
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { Tabs, Redirect, useRouter, usePathname } from 'expo-router';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import { withLayoutContext, Redirect } from 'expo-router';
 import { CustomTabBar } from '@/components/navigation/CustomTabBar';
 import { AssistantHost } from '@/components/ai';
 import { useOnboardingStore } from '@/stores/onboardingStore';
-import { useUiStore } from '@/stores/uiStore';
 import { useTheme } from '@/components/theme';
 
-// Fixed tab order; must match the Tabs.Screen declarations below.
-const TAB_PATHS = ['/', '/items', '/calendar', '/insights'] as const;
+const { Navigator } = createMaterialTopTabNavigator();
 
-function pathToIdx(p: string): number {
-  if (p === '/' || p === '/index') return 0;
-  for (let i = 1; i < TAB_PATHS.length; i++) {
-    if (p === TAB_PATHS[i] || p.startsWith(TAB_PATHS[i] + '/')) return i;
-  }
-  return 0;
-}
+/**
+ * Bind the material-top-tabs Navigator to expo-router's file-based routing.
+ * Screens are auto-discovered from app/(tabs)/*.tsx — no need to list them
+ * explicitly as long as Tabs.Screen names match the file names.
+ */
+const Tabs = withLayoutContext(Navigator);
 
 export default function TabLayout() {
-  const onboardingLoaded  = useOnboardingStore((s) => s.loaded);
+  const onboardingLoaded   = useOnboardingStore((s) => s.loaded);
   const onboardingComplete = useOnboardingStore((s) => s.complete);
-  // True while a chart scrub / row-swipe is in progress — disables tab-swipe.
-  const interacting = useUiStore((s) => s.interacting > 0);
   const theme = useTheme();
-  const router = useRouter();
-  const pathname = usePathname();
-
-  // Fresh refs so the gesture callback (created once) never reads stale values.
-  const pathnameRef = useRef(pathname);
-  pathnameRef.current = pathname;
-  const routerRef = useRef(router);
-  routerRef.current = router;
-
-  const go = (dir: -1 | 1) => {
-    const idx = pathToIdx(pathnameRef.current);
-    const next = idx + dir;
-    if (next >= 0 && next < TAB_PATHS.length) routerRef.current.navigate(TAB_PATHS[next]);
-  };
-  const goRef = useRef(go);
-  goRef.current = go;
-
-  // ── Swipe-between-tabs ─────────────────────────────────────────────────────
-  // gesture-handler Pan: the gesture is RECOGNISED on the native thread (smooth,
-  // never blocked by JS work), while the callback runs on JS (no Reanimated in
-  // this project, so no worklets/runOnJS). activeOffsetX waits for a deliberate
-  // horizontal move; failOffsetY makes it YIELD to vertical scrolls — so
-  // ScrollViews, chip rows, and chart drags keep working untouched.
-  // On release we navigate one tab over; the native 'shift' transition plays.
-  const swipe = useMemo(
-    () =>
-      Gesture.Pan()
-        .enabled(!interacting)
-        .activeOffsetX([-22, 22])
-        .failOffsetY([-16, 16])
-        .runOnJS(true)
-        .onEnd((e) => {
-          const fast = Math.abs(e.velocityX) > 350;
-          const far = Math.abs(e.translationX) > 70;
-          if (!fast && !far) return;
-          if (e.translationX < 0) goRef.current(1);   // swipe left → next tab
-          else goRef.current(-1);                     // swipe right → previous tab
-        }),
-    [interacting],
-  );
 
   if (onboardingLoaded && !onboardingComplete) {
     return <Redirect href="/onboarding" />;
   }
 
   return (
-    <GestureDetector gesture={swipe}>
-      <View style={styles.fill}>
-        <Tabs
-          tabBar={(props) => <CustomTabBar {...props} />}
-          screenOptions={{
-            headerShown: false,
-            // 'none' = instant switch — zero white-flash risk (no intermediate
-            // render frames where both screens overlap). The swipe gesture in
-            // this file provides the physical "sliding" feel; the transition
-            // itself should be instantaneous, exactly like Instagram tabs.
-            // sceneStyle background is a safety net for any OS-level compositing.
-            animation: 'none',
-            lazy: false,
-            sceneStyle: { backgroundColor: theme.colors.background },
-          }}
-        >
-          <Tabs.Screen name="index" />
-          <Tabs.Screen name="items" />
-          <Tabs.Screen name="calendar" />
-          <Tabs.Screen name="insights" />
-        </Tabs>
-        {/* Persistent across the four tabs; sits above the tab bar, clear of "+". */}
-        <AssistantHost />
-      </View>
-    </GestureDetector>
+    <View style={styles.fill}>
+      <Tabs
+        tabBarPosition="bottom"
+        tabBar={(props) => <CustomTabBar {...props} />}
+        screenOptions={{
+          // Screens must stay mounted so useFocusEffect / chart state is preserved.
+          lazy: false,
+          // Background so there is never a white flash behind the pager.
+          sceneStyle: { backgroundColor: theme.colors.background },
+          // Hide the default material tab indicator — our CustomTabBar replaces it.
+          tabBarShowLabel: false,
+          tabBarShowIcon: false,
+          tabBarStyle: { display: 'none' },
+          tabBarIndicatorStyle: { display: 'none' },
+          swipeEnabled: true,
+        }}
+      >
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="items" />
+        <Tabs.Screen name="calendar" />
+        <Tabs.Screen name="insights" />
+      </Tabs>
+
+      {/* AssistantHost floats above all tabs and the tab bar. */}
+      <AssistantHost />
+    </View>
   );
 }
 

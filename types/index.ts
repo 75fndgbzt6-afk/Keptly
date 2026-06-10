@@ -115,6 +115,8 @@ export interface Item {
   status: ItemStatus;
   intentFlag: IntentFlag;
   notes: string | null;
+  cancelUrl: string | null;
+  payUrl: string | null;
   attachmentUri: string | null;
   details: ItemDetails;
   /** Per-item override of reminder lead-time days for its primary track. null = category defaults. */

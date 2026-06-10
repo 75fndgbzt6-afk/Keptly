@@ -5,7 +5,7 @@ import { SecureKeys, secureSet } from '@/services/secure-store';
 import { getDb } from './index';
 
 /** Bump this and add a migration step when the schema changes. */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 const CREATE_PAYMENT_METHODS = `
   CREATE TABLE IF NOT EXISTS payment_methods (
@@ -172,6 +172,14 @@ const MIGRATIONS: { version: number; up: (db: SQLiteDatabase) => Promise<void> }
            value TEXT NOT NULL
          );`,
       );
+    },
+  },
+  {
+    version: 6,
+    up: async (db) => {
+      // Quick-action deep-link URLs: one tap to cancel or pay for a subscription.
+      await db.execAsync('ALTER TABLE items ADD COLUMN cancelUrl TEXT;');
+      await db.execAsync('ALTER TABLE items ADD COLUMN payUrl TEXT;');
     },
   },
 ];

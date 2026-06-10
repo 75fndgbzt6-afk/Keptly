@@ -89,6 +89,8 @@ export async function seedSampleData(): Promise<{ created: number; alreadySeeded
       status: 'active',
       intentFlag: spec.intent,
       notes: SEED_TAG,
+      cancelUrl: null,
+      payUrl: null,
       attachmentUri: null,
       details: emptyDetailsFor(spec.category),
     };

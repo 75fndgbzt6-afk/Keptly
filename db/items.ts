@@ -31,6 +31,8 @@ interface ItemRow {
   status: string;
   intentFlag: string;
   notes: string | null;
+  cancelUrl: string | null;
+  payUrl: string | null;
   attachmentUri: string | null;
   details: string;
   reminderLeadDays: string | null;
@@ -79,6 +81,8 @@ function rowToItem(row: ItemRow): Item {
     status: row.status as ItemStatus,
     intentFlag: row.intentFlag as IntentFlag,
     notes: row.notes,
+    cancelUrl: row.cancelUrl,
+    payUrl: row.payUrl,
     attachmentUri: row.attachmentUri,
     details: parseDetails(row.details),
     reminderLeadDays: parseLeadDays(row.reminderLeadDays),
@@ -90,15 +94,15 @@ function rowToItem(row: ItemRow): Item {
 const SELECT_COLUMNS = `
   id, name, category, holderName, paymentMethodId, amount, currency,
   billingCycle, startDate, nextDate, autoRenew, isFreeTrial, trialEndDate,
-  status, intentFlag, notes, attachmentUri, details, reminderLeadDays,
-  createdAt, updatedAt
+  status, intentFlag, notes, cancelUrl, payUrl, attachmentUri, details,
+  reminderLeadDays, createdAt, updatedAt
 `;
 
 async function upsert(item: Item): Promise<void> {
   const db = await getDb();
   await db.runAsync(
     `INSERT OR REPLACE INTO items (${SELECT_COLUMNS})
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       item.id,
       item.name,
@@ -116,6 +120,8 @@ async function upsert(item: Item): Promise<void> {
       item.status,
       item.intentFlag,
       item.notes,
+      item.cancelUrl,
+      item.payUrl,
       item.attachmentUri,
       JSON.stringify(item.details),
       item.reminderLeadDays ? JSON.stringify(item.reminderLeadDays) : null,

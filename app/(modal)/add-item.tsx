@@ -87,6 +87,8 @@ interface FormState {
   status: ItemStatus;
   intentFlag: IntentFlag;
   notes: string;
+  cancelUrl: string;
+  payUrl: string;
   details: ItemDetails;
   /** Full government-ID input (document items only). Stored in secure store, never the table. */
   fullId: string;
@@ -110,6 +112,8 @@ function initialForm(initialCategory?: string): FormState {
     status: 'active',
     intentFlag: 'neutral',
     notes: '',
+    cancelUrl: '',
+    payUrl: '',
     details: detailsForCategory(category),
     fullId: '',
     attachmentUri: null,
@@ -174,6 +178,8 @@ export default function AddEditItemModal() {
         status: item.status,
         intentFlag: item.intentFlag,
         notes: item.notes ?? '',
+        cancelUrl: item.cancelUrl ?? '',
+        payUrl: item.payUrl ?? '',
         details: item.details,
         fullId,
         attachmentUri: item.attachmentUri,
@@ -367,6 +373,8 @@ export default function AddEditItemModal() {
       status: form.status,
       intentFlag: form.intentFlag,
       notes: form.notes.trim() || null,
+      cancelUrl: form.cancelUrl.trim() || null,
+      payUrl: form.payUrl.trim() || null,
       // Round-trip any existing scan untouched (managed on the detail screen).
       attachmentUri: form.attachmentUri,
       details,
@@ -554,6 +562,22 @@ export default function AddEditItemModal() {
             value={form.intentFlag}
             options={INTENT_OPTIONS}
             onChange={(v) => update('intentFlag', v)}
+          />
+          <Input
+            label="Cancel URL (optional)"
+            placeholder="e.g. netflix.com/cancelplan"
+            value={form.cancelUrl}
+            onChangeText={(t) => update('cancelUrl', t)}
+            autoCapitalize="none"
+            keyboardType="url"
+          />
+          <Input
+            label="Pay URL (optional)"
+            placeholder="e.g. billing.yourservice.com"
+            value={form.payUrl}
+            onChangeText={(t) => update('payUrl', t)}
+            autoCapitalize="none"
+            keyboardType="url"
           />
           <Input
             label="Notes (optional)"
