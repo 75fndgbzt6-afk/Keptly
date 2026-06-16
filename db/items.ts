@@ -11,6 +11,7 @@ import {
 } from '@/types';
 import { generateId } from '@/lib/id';
 import { calcNextDate } from '@/lib/date';
+import { convertAmount } from '@/lib/exchange';
 import { scheduleForItem, cancelForItem } from '@/services/notifications';
 import { getDb } from './index';
 
@@ -184,6 +185,31 @@ export async function deleteItem(id: string): Promise<void> {
   await cancelForItem(id);
   const db = await getDb();
   await db.runAsync('DELETE FROM items WHERE id = ?', [id]);
+}
+
+/**
+ * Convert every item's monetary fields (amount + insurance premium) from one
+ * currency to another and stamp the new currency. Used when the user changes
+ * the app's single global currency. Writes via upsert (no reschedule — dates
+ * are unchanged), so it's cheap even for the whole table.
+ */
+export async function convertItemsCurrency(from: string, to: string): Promise<void> {
+  if (from === to) return;
+  const items = await listItems();
+  const now = new Date().toISOString();
+  for (const item of items) {
+    let details = item.details;
+    if (details.kind === 'insurance' && details.premium !== undefined) {
+      details = { ...details, premium: convertAmount(details.premium, from, to) };
+    }
+    await upsert({
+      ...item,
+      amount: item.amount === null ? null : convertAmount(item.amount, from, to),
+      currency: to,
+      details,
+      updatedAt: now,
+    });
+  }
 }
 
 export async function getItem(id: string): Promise<Item | null> {

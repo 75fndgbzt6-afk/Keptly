@@ -10,6 +10,7 @@ import { useTheme, useThemedStyles } from '@/components/theme';
 import { useThemeStore } from '@/stores/themeStore';
 import { canAuthenticate } from '@/services/app-lock';
 import { exportData, deleteAllData } from '@/services/data-export';
+import { changeCurrency } from '@/services/currency';
 import { CURRENCY_SYMBOLS } from '@/constants/config';
 import { useSecurityStore, TIMEOUT_OPTIONS, TimeoutMinutes } from '@/stores/securityStore';
 import { usePreferencesStore } from '@/stores/preferencesStore';
@@ -136,7 +137,7 @@ export default function SettingsScreen() {
                     <TouchableOpacity
                       key={code}
                       activeOpacity={0.7}
-                      onPress={() => prefs.update({ defaultCurrency: code })}
+                      onPress={() => changeCurrency(code)}
                       style={[styles.chip, active && styles.chipActive]}
                       accessibilityRole="button"
                       accessibilityState={{ selected: active }}
