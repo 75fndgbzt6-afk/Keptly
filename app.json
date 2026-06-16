@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "scheme": "renewly",
     "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
     "icon": "./assets/icon.png",
     "assetBundlePatterns": [
       "**/*"
