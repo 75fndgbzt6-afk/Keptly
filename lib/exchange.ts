@@ -2,11 +2,13 @@
 // when the user switches it, every stored amount is converted once via these
 // rates so all downstream math/display stays in a single currency.
 //
-// Rates are approximate static values (units of each currency per 1 USD). They
-// are fine for a personal tracker; swap in a live feed later if needed. Any
-// currency missing here converts 1:1 (no silent zeroing).
+// Rates are units of each currency per 1 USD. The STATIC table below is the
+// offline fallback (baked in); at runtime it's replaced by live rates fetched
+// + cached by services/exchange-rates.ts. Any currency missing here converts
+// 1:1 (no silent zeroing).
 
-const RATES_PER_USD: Record<string, number> = {
+/** Baked-in fallback rates (per 1 USD). Used until live/cached rates load. */
+export const STATIC_RATES_PER_USD: Record<string, number> = {
   USD: 1,
   INR: 86,
   EUR: 0.92,
@@ -14,11 +16,23 @@ const RATES_PER_USD: Record<string, number> = {
   AED: 3.67,
 };
 
+// Mutable active rates — starts at the static fallback, updated by setRates().
+let ratesPerUsd: Record<string, number> = { ...STATIC_RATES_PER_USD };
+
+/** Replace the active rates (e.g. with live values). Missing keys keep their fallback. */
+export function setRates(rates: Record<string, number>): void {
+  ratesPerUsd = { ...STATIC_RATES_PER_USD, ...rates };
+}
+
+export function getRates(): Record<string, number> {
+  return ratesPerUsd;
+}
+
 /** Multiplier to convert an amount FROM one currency TO another. */
 export function conversionFactor(from: string, to: string): number {
   if (from === to) return 1;
-  const fromRate = RATES_PER_USD[from];
-  const toRate = RATES_PER_USD[to];
+  const fromRate = ratesPerUsd[from];
+  const toRate = ratesPerUsd[to];
   if (!fromRate || !toRate) return 1; // unknown currency → leave the value unchanged
   return toRate / fromRate;
 }

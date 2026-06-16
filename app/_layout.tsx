@@ -13,6 +13,7 @@ import {
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
 import { initDatabase } from '@/db/schema';
+import { initExchangeRates } from '@/services/exchange-rates';
 import { initNotifications, reconcile, addResponseListener } from '@/services/notifications';
 import { useRecommendationsStore } from '@/stores/recommendationsStore';
 import { useThemeStore } from '@/stores/themeStore';
@@ -46,6 +47,7 @@ export default function RootLayout() {
         await useThemeStore.getState().refresh();
         await useOnboardingStore.getState().refresh();
         await initDatabase();
+        await initExchangeRates();
         await usePreferencesStore.getState().refresh();
         await useAiStore.getState().refresh();
         await initNotifications();
