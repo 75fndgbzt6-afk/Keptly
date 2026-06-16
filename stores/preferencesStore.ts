@@ -3,6 +3,7 @@
 // (NOT secure store — names/preferences aren't secrets, SPEC §8).
 import { create } from 'zustand';
 import { DEFAULT_CURRENCY } from '@/constants/config';
+import { setActiveCurrency } from '@/lib/currency';
 import { getSetting, setSetting } from '@/db/settings';
 
 const PREFS_KEY = 'preferences';
@@ -69,7 +70,10 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
   ...DEFAULTS,
   loaded: false,
   refresh: async () => {
-    set({ ...parse(await getSetting(PREFS_KEY)), loaded: true });
+    const prefs = parse(await getSetting(PREFS_KEY));
+    // Keep the pure currency formatter's default in sync with the user's choice.
+    setActiveCurrency(prefs.defaultCurrency);
+    set({ ...prefs, loaded: true });
   },
   update: async (patch) => {
     const next: Preferences = {
@@ -84,6 +88,7 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
       hapticsEnabled: get().hapticsEnabled,
       ...patch,
     };
+    setActiveCurrency(next.defaultCurrency);
     set(next);
     await setSetting(PREFS_KEY, JSON.stringify(next));
   },

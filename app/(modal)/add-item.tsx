@@ -27,6 +27,7 @@ import {
   OTHER_DOC_TYPE,
 } from '@/lib/options';
 import { documentMask } from '@/lib/masking';
+import { getActiveCurrency } from '@/lib/currency';
 import { todayISO, addDays, fromISODate, toISODate } from '@/lib/date';
 import { createItem, getItem, updateItem } from '@/db/items';
 import { getFullId, setFullId, clearFullId } from '@/services/vault';
@@ -749,6 +750,7 @@ function InsuranceFields({
   details: InsuranceDetails;
   onChange: (patch: Partial<Omit<InsuranceDetails, 'kind'>>) => void;
 }) {
+  const premiumSymbol = CURRENCY_SYMBOLS[getActiveCurrency()] ?? getActiveCurrency();
   return (
     <>
       <Input
@@ -764,7 +766,7 @@ function InsuranceFields({
         onChangeText={(t) => onChange({ policyNumber: t })}
       />
       <Input
-        label="Premium (₹)"
+        label={`Premium (${premiumSymbol})`}
         placeholder="0"
         keyboardType="decimal-pad"
         value={details.premium !== undefined ? String(details.premium) : ''}
