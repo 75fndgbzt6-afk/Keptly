@@ -1,5 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+} from 'react-native';
+import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Button, Input } from '@/components/ui';
@@ -140,6 +151,8 @@ export default function AddEditItemModal() {
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(isEdit);
+  // Measured glass-header height so scroll content starts just below it.
+  const [headerHeight, setHeaderHeight] = useState(76);
 
   // Quick-add (AI) state.
   const [quickText, setQuickText] = useState('');
@@ -406,10 +419,17 @@ export default function AddEditItemModal() {
   }
 
   return (
-    <Screen padded={false} edges={[]} scroll>
-      <ModalHeader title={isEdit ? 'Edit Item' : 'Add Item'} onClose={() => router.back()} />
-
-      <View style={styles.body}>
+    <Screen padded={false} edges={[]}>
+      <KeyboardAvoidingView
+        style={styles.modalFill}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={[styles.scrollBody, { paddingTop: headerHeight }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.body}>
         {aiEnabled && !isEdit ? (
           <Section title={AI_COPY.quickAdd.toggle}>
             <View style={styles.quickRow}>
@@ -596,7 +616,16 @@ export default function AddEditItemModal() {
           fullWidth
           style={styles.submit}
         />
-      </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Sticky frosted-glass header — content scrolls beneath it. */}
+      <ModalHeader
+        title={isEdit ? 'Edit Item' : 'Add Item'}
+        onClose={() => router.back()}
+        onMeasure={setHeaderHeight}
+      />
     </Screen>
   );
 }
@@ -786,11 +815,31 @@ function InsuranceFields({
 
 // --- Layout helpers ---
 
-function ModalHeader({ title, onClose }: { title: string; onClose: () => void }) {
+function ModalHeader({
+  title,
+  onClose,
+  onMeasure,
+}: {
+  title: string;
+  onClose: () => void;
+  onMeasure?: (height: number) => void;
+}) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const insets = useSafeAreaInsets();
   return (
-    <>
+    <View
+      style={[styles.headerGlass, { paddingTop: Math.max(insets.top, theme.spacing.sm) }]}
+      onLayout={(e) => onMeasure?.(e.nativeEvent.layout.height)}
+    >
+      {/* Native frosted material behind the title — form scrolls under it. */}
+      <BlurView
+        intensity={theme.colors.glass.intensity}
+        tint={theme.colors.glass.tint}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.colors.glass.overlay }]} />
+
       <View style={styles.handle} />
       <View style={styles.header}>
         <AppText size="lg" weight="semibold">
@@ -805,7 +854,7 @@ function ModalHeader({ title, onClose }: { title: string; onClose: () => void })
           <Ionicons name="close" size={20} color={theme.colors.text.secondary} />
         </TouchableOpacity>
       </View>
-    </>
+    </View>
   );
 }
 
@@ -823,13 +872,30 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 const makeStyles = (theme: Theme) => StyleSheet.create({
+  modalFill: {
+    flex: 1,
+  },
+  scrollBody: {
+    // paddingTop is applied dynamically (= measured glass-header height).
+    flexGrow: 1,
+  },
+  headerGlass: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    overflow: 'hidden',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.glass.border,
+  },
   handle: {
     width: 36,
     height: 4,
     borderRadius: 2,
     backgroundColor: theme.colors.border,
     alignSelf: 'center',
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.sm,
     marginBottom: theme.spacing.sm,
   },
   header: {
@@ -838,8 +904,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: theme.spacing.base,
     paddingBottom: theme.spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
   },
   closeButton: {
     width: 32,

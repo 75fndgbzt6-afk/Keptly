@@ -1,28 +1,29 @@
 /**
- * CustomTabBar — works with @react-navigation/material-top-tabs.
+ * CustomTabBar — frosted-glass bottom bar (iOS UIBlurEffect via expo-blur).
  *
- * Animation strategy (all UI-thread, zero JS re-renders per frame):
- *   • The navigator passes `position: Animated.AnimatedInterpolation<number>`
- *     which is connected to the PagerView scroll position via native driver.
- *   • Each tab renders TWO icons — accent (active) and tertiary (inactive) —
- *     stacked in absolute position. Their opacities are driven by
- *     `position.interpolate` with useNativeDriver, so the crossfade follows
- *     the finger 1:1 at 60 fps on the UI thread.
- *   • A small accent dot indicator below each icon fades the same way.
- *   • A thin animated sliding line under the whole bar interpolates from the
- *     `position` value across the 5-slot bar geometry (4 tabs + 1 "+" gap)
- *     using Animated.multiply — no JS measurement needed.
+ * The root is absolutely positioned so it is removed from the navigator's
+ * column flow: the tab screens then fill the full height and their content
+ * scrolls *behind* the translucent bar (the Apple Music look). Screens add
+ * `TAB_BAR_CLEARANCE` of bottom padding so their last rows clear the bar.
+ *
+ * We keep the bottom-tabs `tabBar` prop (state/navigation), so taps, the
+ * `tabPress` event, and scroll-to-top-on-retap all keep working.
  */
-import React, { useRef } from 'react';
-import { View, TouchableOpacity, StyleSheet, Animated, Dimensions } from 'react-native';
-import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
+import React from 'react';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { BlurView } from 'expo-blur';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Theme } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/components/theme';
 import { AppText } from '@/components/ui/AppText';
-import { hapticSelection } from '@/lib/haptics';
+
+/** Height of the bar content (excluding the safe-area inset). */
+export const TAB_BAR_CONTENT_HEIGHT = 56;
+/** Bottom padding tab screens add so content clears the floating glass bar. */
+export const TAB_BAR_CLEARANCE = 96;
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -39,78 +40,27 @@ const TAB_CONFIG: Record<string, TabConfig> = {
   insights: { active: 'bar-chart', inactive: 'bar-chart-outline', label: 'Insights' },
 };
 
-// The bar has 5 equal visual slots: [Home][Items][+][Calendar][Insights].
-// Tab indices map to visual slot indices (skipping slot 2 for the "+" button).
-const TAB_SLOT: Record<number, number> = { 0: 0, 1: 1, 2: 3, 3: 4 };
+export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+  const theme  = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
 
-export function CustomTabBar({ state, navigation, position }: MaterialTopTabBarProps) {
-  const theme   = useTheme();
-  const styles  = useThemedStyles(makeStyles);
-  const insets  = useSafeAreaInsets();
-  const router  = useRouter();
-  const barWidthRef = useRef(Dimensions.get('window').width);
-
-  // ── Tap handler ─────────────────────────────────────────────────────────────
   const tapTab = (routeIndex: number) => {
     const route = state.routes[routeIndex];
     if (!route) return;
-    const isFocused = state.index === routeIndex;
-    const event = navigation.emit({
-      type: 'tabPress',
-      target: route.key,
-      canPreventDefault: true,
-    });
-    if (!isFocused && !event.defaultPrevented) {
-      hapticSelection();
-      navigation.navigate(route.name, route.params);
+    const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+    if (state.index !== routeIndex && !event.defaultPrevented) {
+      navigation.navigate(route.name as never);
     }
   };
 
-  // ── Sliding indicator ────────────────────────────────────────────────────────
-  // The indicator translates across 5 equal slots. `position` interpolates
-  // from 0→3 (page indices) which maps to slot positions 0→1→3→4 (skipping
-  // the "+" slot). We compute translateX = slotCenter(mappedSlot) entirely
-  // via Animated.multiply/add — no JS measurement, pure native driver.
-  //
-  // slotWidth = barWidth / 5
-  // slotCenter(slot) = slot * slotWidth + slotWidth / 2
-  //
-  // Mapped positions for pages 0-3: slots 0, 1, 3, 4
-  // → slotCenter values = [0.1W, 0.3W, 0.7W, 0.9W]
-  //
-  // We pre-express those as a ratio of barWidth so a single Animated.multiply
-  // can compute the pixel value without knowing barWidth at setup time.
-  //   position 0→1 = ratio 0.1→0.3  (slot 0→1)
-  //   position 1→2 = ratio 0.3→0.7  (slot 1→3, jumps the "+" slot)
-  //   position 2→3 = ratio 0.7→0.9  (slot 3→4)
-  const indicatorRatio = position.interpolate({
-    inputRange:  [0, 1, 2, 3],
-    outputRange: [0.1, 0.3, 0.7, 0.9],
-    extrapolate: 'clamp',
-  });
-
-  // Multiply by measured bar width on layout update (starts at screen width).
-  const barWidthAnim = useRef(new Animated.Value(barWidthRef.current)).current;
-  const indicatorX   = Animated.multiply(indicatorRatio, barWidthAnim);
-
-  // ── Render a single tab ──────────────────────────────────────────────────────
   const renderTab = (routeIndex: number) => {
     const route = state.routes[routeIndex];
     if (!route) return null;
     const config = TAB_CONFIG[route.name];
     if (!config) return null;
-
-    // Per-tab opacity driven by position — no JS callbacks per frame.
-    const activeOpacity = position.interpolate({
-      inputRange:  [routeIndex - 1, routeIndex, routeIndex + 1],
-      outputRange: [0, 1, 0],
-      extrapolate: 'clamp',
-    });
-    const inactiveOpacity = position.interpolate({
-      inputRange:  [routeIndex - 1, routeIndex, routeIndex + 1],
-      outputRange: [1, 0, 1],
-      extrapolate: 'clamp',
-    });
+    const isFocused = state.index === routeIndex;
 
     return (
       <TouchableOpacity
@@ -119,61 +69,43 @@ export function CustomTabBar({ state, navigation, position }: MaterialTopTabBarP
         activeOpacity={0.65}
         accessibilityRole="button"
         accessibilityLabel={config.label}
-        accessibilityState={{ selected: state.index === routeIndex }}
+        accessibilityState={{ selected: isFocused }}
         onPress={() => tapTab(routeIndex)}
       >
-        {/* Stacked icons: accent fades in when active, tertiary fades in when inactive */}
-        <View style={styles.iconStack}>
-          <Animated.View style={{ opacity: inactiveOpacity }}>
-            <Ionicons name={config.inactive} size={22} color={theme.colors.text.tertiary} />
-          </Animated.View>
-          <Animated.View style={[StyleSheet.absoluteFill, styles.iconCenter, { opacity: activeOpacity }]}>
-            <Ionicons name={config.active} size={22} color={theme.colors.accent} />
-          </Animated.View>
-        </View>
-
-        {/* Label — static colour change is fine since it only triggers on JS-thread tab press */}
+        <Ionicons
+          name={isFocused ? config.active : config.inactive}
+          size={22}
+          color={isFocused ? theme.colors.accent : theme.colors.text.tertiary}
+        />
         <AppText
           size="xs"
-          weight={state.index === routeIndex ? 'medium' : 'regular'}
-          color={state.index === routeIndex ? theme.colors.accent : theme.colors.text.tertiary}
+          weight={isFocused ? 'medium' : 'regular'}
+          color={isFocused ? theme.colors.accent : theme.colors.text.tertiary}
         >
           {config.label}
         </AppText>
-
-        {/* Per-tab dot indicator (fades with page scroll on UI thread) */}
-        <Animated.View style={[styles.dot, { backgroundColor: theme.colors.accent, opacity: activeOpacity }]} />
       </TouchableOpacity>
     );
   };
 
   return (
-    <View
-      style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}
-      onLayout={(e) => {
-        const w = e.nativeEvent.layout.width;
-        barWidthRef.current = w;
-        barWidthAnim.setValue(w);
-      }}
-    >
-      {/* Sliding accent line — absolutely positioned, follows page scroll natively */}
-      <Animated.View
-        style={[
-          styles.slidingLine,
-          { backgroundColor: theme.colors.accent },
-          { transform: [{ translateX: Animated.subtract(indicatorX, new Animated.Value(18)) }] },
-        ]}
+    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+      {/* Native iOS frosted-glass material — content scrolls behind this. */}
+      <BlurView
+        intensity={theme.colors.glass.intensity}
+        tint={theme.colors.glass.tint}
+        style={StyleSheet.absoluteFill}
       />
+      {/* Translucent tint over the blur: legibility + Android fallback. */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.colors.glass.overlay }]} />
 
       <View style={styles.bar}>
         {renderTab(0)}
         {renderTab(1)}
-
-        {/* Centre "+" — not part of the pager sequence */}
         <View style={styles.addWrapper}>
           <TouchableOpacity
             style={styles.addButton}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
             onPress={() => router.push('/(modal)/add-item')}
             accessibilityLabel="Add item"
             accessibilityRole="button"
@@ -181,7 +113,6 @@ export function CustomTabBar({ state, navigation, position }: MaterialTopTabBarP
             <Ionicons name="add" size={28} color={theme.colors.text.inverse} />
           </TouchableOpacity>
         </View>
-
         {renderTab(2)}
         {renderTab(3)}
       </View>
@@ -191,9 +122,16 @@ export function CustomTabBar({ state, navigation, position }: MaterialTopTabBarP
 
 const makeStyles = (theme: Theme) => StyleSheet.create({
   container: {
-    backgroundColor: theme.colors.surface,
+    // Absolute → removed from the navigator column flow so screens fill the
+    // full height and scroll behind the glass.
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.colors.border,
+    borderTopColor: theme.colors.glass.border,
+    // Clip the blur to the bar bounds (the FAB still overflows above via its own layer).
+    overflow: 'visible',
   },
   bar: {
     flexDirection: 'row',
@@ -207,29 +145,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     minHeight: 44,
     gap: 2,
     paddingBottom: 4,
-  },
-  iconStack: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconCenter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    marginTop: 2,
-  },
-  slidingLine: {
-    position: 'absolute',
-    top: 0,
-    width: 36,
-    height: 2,
-    borderRadius: 1,
   },
   addWrapper: {
     flex: 1,

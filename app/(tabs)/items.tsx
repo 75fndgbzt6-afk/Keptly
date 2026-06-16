@@ -10,6 +10,7 @@ import { hapticSelection } from '@/lib/haptics';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Input, EmptyState, SkeletonList, Button } from '@/components/ui';
+import { TAB_BAR_CLEARANCE } from '@/components/navigation/CustomTabBar';
 import { ItemRow, SummaryRings, useItemContextMenu, RingDatum } from '@/components/items';
 import { ActivityRings, ChartModal, Donut } from '@/components/charts';
 import { Theme } from '@/constants/theme';
@@ -370,6 +371,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   listContent: {
     padding: theme.spacing.base,
+    paddingBottom: TAB_BAR_CLEARANCE,
     gap: theme.spacing.sm,
   },
   vaultBanner: {
