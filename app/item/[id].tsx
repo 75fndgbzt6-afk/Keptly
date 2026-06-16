@@ -241,7 +241,7 @@ export default function ItemDetailScreen() {
         </View>
 
         <Card style={styles.card}>
-          <DetailRow label="Amount" value={formatCurrency(item.amount, item.currency)} />
+          <DetailRow label="Amount" value={formatCurrency(item.amount)} />
           <DetailRow label="Billing cycle" value={billingCycleLabel(item)} />
           <DetailRow
             label="Next date"

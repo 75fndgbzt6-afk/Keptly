@@ -31,15 +31,15 @@ function groupStandard(intDigits: string): string {
 }
 
 /**
- * Format a numeric amount with its currency symbol. INR uses Indian grouping;
- * every other currency uses standard thousands grouping. Drops trailing ".00";
- * keeps decimals when present. When no currency is passed, the user's active
- * default currency is used (not a hard-coded ₹).
+ * Format a numeric amount in the app's single global currency (the user's
+ * choice in Settings). INR uses Indian grouping; every other currency uses
+ * standard thousands grouping. Drops trailing ".00"; keeps decimals when
+ * present. There is intentionally no per-item currency override — the whole
+ * app displays in one currency, so an item saved long ago always shows in the
+ * currency the user is currently using.
  */
-export function formatCurrency(
-  amount: number | null | undefined,
-  currency: string = activeCurrency,
-): string {
+export function formatCurrency(amount: number | null | undefined): string {
+  const currency = activeCurrency;
   const symbol = CURRENCY_SYMBOLS[currency] ?? `${currency} `;
   if (amount === null || amount === undefined || Number.isNaN(amount)) {
     return `${symbol}—`;

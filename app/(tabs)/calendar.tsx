@@ -160,7 +160,7 @@ export default function CalendarScreen() {
                     {ev.label}
                   </AppText>
                 </View>
-                <AppText weight="medium">{formatCurrency(ev.item.amount, ev.item.currency)}</AppText>
+                <AppText weight="medium">{formatCurrency(ev.item.amount)}</AppText>
               </Card>
             );
           })}

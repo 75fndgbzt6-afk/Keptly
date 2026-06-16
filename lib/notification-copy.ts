@@ -31,7 +31,7 @@ export function notificationContent(
   const when = leadPhrase(leadTimeDays);
   const amount =
     item.amount !== null && item.amount !== undefined
-      ? formatCurrency(item.amount, item.currency)
+      ? formatCurrency(item.amount)
       : null;
 
   switch (type) {

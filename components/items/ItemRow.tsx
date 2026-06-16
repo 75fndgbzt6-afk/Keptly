@@ -67,7 +67,7 @@ export function ItemRow({ item, onPress, onLongPress, costPerUse, utilization }:
       </View>
 
       <View style={styles.right}>
-        <AppText weight="semibold">{formatCurrency(item.amount, item.currency)}</AppText>
+        <AppText weight="semibold">{formatCurrency(item.amount)}</AppText>
         {cycleSuffix ? (
           <AppText size="xs" color={theme.colors.text.tertiary}>
             {cycleSuffix}

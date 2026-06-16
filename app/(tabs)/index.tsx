@@ -435,7 +435,7 @@ function UpcomingRow({ item, last, onPress, onLongPress }: { item: Item; last: b
           </AppText>
         </View>
       </View>
-      <AppText weight="semibold">{formatCurrency(item.amount, item.currency)}</AppText>
+      <AppText weight="semibold">{formatCurrency(item.amount)}</AppText>
     </TouchableOpacity>
   );
 }
