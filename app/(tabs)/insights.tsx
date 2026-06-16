@@ -4,7 +4,6 @@ import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Badge, Button, EmptyState } from '@/components/ui';
-import { TAB_BAR_CLEARANCE } from '@/components/navigation/CustomTabBar';
 import { RecommendationCard } from '@/components/insights';
 import { Donut, AreaChart, StackedAreaChart, ChartModal } from '@/components/charts';
 import { Theme } from '@/constants/theme';
@@ -530,7 +529,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   content: {
     padding: theme.spacing.base,
-    paddingBottom: TAB_BAR_CLEARANCE,
     gap: theme.spacing.lg,
   },
   section: {

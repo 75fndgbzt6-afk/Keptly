@@ -73,17 +73,6 @@ export interface Palette {
     warningLight: string;
     dangerLight: string;
   };
-  /** Frosted-glass material (iOS UIBlurEffect). Used by the tab bar + modal headers. */
-  glass: {
-    /** BlurView tint name. */
-    tint: 'light' | 'dark' | 'default';
-    /** BlurView intensity 0–100. */
-    intensity: number;
-    /** Translucent tint layered over the blur for legibility + fallback. */
-    overlay: string;
-    /** Hairline edge that separates the glass surface from content. */
-    border: string;
-  };
 }
 
 const lightColors: Palette = {
@@ -107,13 +96,6 @@ const lightColors: Palette = {
     warningLight: '#FFFBEB',
     dangerLight: '#FEF2F2',
   },
-  glass: {
-    tint: 'light',
-    intensity: 40,
-    // Warm near-white at ~62% so content behind reads as frosted, not hidden.
-    overlay: 'rgba(247,246,243,0.62)',
-    border: 'rgba(0,0,0,0.06)',
-  },
 };
 
 const darkColors: Palette = {
@@ -136,13 +118,6 @@ const darkColors: Palette = {
     goodLight: '#16271B',
     warningLight: '#2A2410',
     dangerLight: '#2C1717',
-  },
-  glass: {
-    tint: 'dark',
-    intensity: 45,
-    // Deep warm charcoal at ~58% — frosts content behind without washing it out.
-    overlay: 'rgba(26,25,23,0.58)',
-    border: 'rgba(255,255,255,0.08)',
   },
 };
 

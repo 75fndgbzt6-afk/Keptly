@@ -4,7 +4,6 @@ import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, EmptyState } from '@/components/ui';
-import { TAB_BAR_CLEARANCE } from '@/components/navigation/CustomTabBar';
 import { MonthCalendar, EventDot } from '@/components/calendar/MonthCalendar';
 import { Theme } from '@/constants/theme';
 import { useThemedStyles, useTheme } from '@/components/theme';
@@ -179,7 +178,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   content: {
     padding: theme.spacing.base,
-    paddingBottom: TAB_BAR_CLEARANCE,
     gap: theme.spacing.md,
   },
   calendarCard: {
